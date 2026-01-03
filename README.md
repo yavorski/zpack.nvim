@@ -139,7 +139,7 @@ Neovim 0.12+ includes a built-in package manager (`vim.pack`) that handles plugi
 #### Features
 - [z***pack***] is completely native
     - Install and manage your plugins _(including zpack)_ all within `vim.pack`
-- [🔋pack] is "batteries included"
+- [<img width="14" src="https://github.com/user-attachments/assets/1c28419d-f791-4aa4-ada1-b34fb12e95d5">pack] is "batteries included"
     - Add plugins using the same lazy.nvim spec provided by plugin authors you know and love
     - Minimal configurations necessary
 - [💤pack] powers up `vim.pack` without the frills
