@@ -460,6 +460,26 @@ Most of your lazy.nvim plugin specs will work as-is with zpack. However, zpack f
 - **dev mode**: Use `src = vim.fn.expand('~/projects/my_plugin.nvim')` for local development
 - **profiling**: Use `nvim --startuptime startuptime.log`. Also refer to example [Neovim Profiler script](https://gist.github.com/zuqini/35993710f81983fbfa6baca67bdb32ed)
 
+### Snacks.nvim dashboard with zpack.nvim
+
+The default [Snacks.nvim](https://github.com/folke/snacks.nvim) dashboard configuration includes a startup time section that has a hard dependency on lazy.nvim. This will cause errors with any other plugin manager, not just zpack.
+
+To work around this, remove the startup section from your dashboard configuration:
+
+```lua
+require('snacks').setup({
+  dashboard = {
+    sections = {
+      { section = "header" },
+      { section = "keys", gap = 1, padding = 1 },
+      -- { section = "startup" }, -- Remove this line (depends on lazy.nvim)
+    },
+  }
+})
+```
+
+See [snacks.nvim#1778](https://github.com/folke/snacks.nvim/issues/1778) for more details.
+
 ## Acknowledgements
 
 zpack's spec design and several features are inspired by [lazy.nvim](https://github.com/folke/lazy.nvim). Credit to folke for the excellent plugin manager that influenced this project.

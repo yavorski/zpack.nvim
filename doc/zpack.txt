@@ -851,6 +851,27 @@ dev mode                  Use `src = vim.fn.expand('~/projects/my_plugin.nvim')`
 profiling                 Use `nvim --startuptime startuptime.log`.
                           Also see: https://gist.github.com/zuqini/35993710f81983fbfa6baca67bdb32ed
 
+------------------------------------------------------------------------------
+SNACKS.NVIM DASHBOARD                              *zpack-migration-snacks*
+
+The default Snacks.nvim dashboard configuration includes a startup time
+section that has a hard dependency on lazy.nvim. This will cause errors with
+any plugin manager other than lazy.nvim, not just zpack.
+
+To work around this, remove the startup section from your dashboard config:
+>lua
+    require('snacks').setup({
+      dashboard = {
+        sections = {
+          { section = "header" },
+          { section = "keys", gap = 1, padding = 1 },
+          -- { section = "startup" }, -- Remove (depends on lazy.nvim)
+        },
+      }
+    })
+<
+See: https://github.com/folke/snacks.nvim/issues/1778
+
 ==============================================================================
 12. ACKNOWLEDGEMENTS                               *zpack-acknowledgements*
 
