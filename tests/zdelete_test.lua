@@ -49,7 +49,8 @@ return function()
       local call = _G.test_state.vim_pack_del_calls[1]
       helpers.assert_not_nil(call.opts, "opts should be passed to vim.pack.del")
       helpers.assert_true(call.opts.force, "force option should be true")
-      helpers.assert_equal(#call.names, 3, "all 3 plugins should be in delete list")
+      helpers.assert_equal(#call.names, 4, "all 4 plugins (3 + zpack.nvim) should be in delete list")
+      helpers.assert_table_contains(call.names, 'zpack.nvim', "zpack.nvim should be in delete list")
 
       helpers.cleanup_test_env()
       helpers.delete_zpack_commands()

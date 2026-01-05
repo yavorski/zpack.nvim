@@ -224,6 +224,7 @@ M.setup = function(prefix)
       for i = #state.registered_plugins, 1, -1 do
         table.insert(names, state.registered_plugins[i].name)
       end
+      table.insert(names, 'zpack.nvim')
 
       util.schedule_notify(("Deleting all %d installed plugin(s)..."):format(#names), vim.log.levels.INFO)
       vim.pack.del(names, { force = true })
