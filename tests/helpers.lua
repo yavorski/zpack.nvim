@@ -161,6 +161,15 @@ function M.setup_test_env()
     end
     return #results > 0 and results or nil
   end
+
+  _G.test_state.original_vim_pack_del = vim.pack.del
+  _G.test_state.vim_pack_del_calls = {}
+  vim.pack.del = function(names, opts)
+    table.insert(_G.test_state.vim_pack_del_calls, { names = names, opts = opts })
+    for _, name in ipairs(names) do
+      _G.test_state.registered_pack_specs[name] = nil
+    end
+  end
 end
 
 function M.cleanup_test_env()
@@ -185,6 +194,9 @@ function M.cleanup_test_env()
     end
     if _G.test_state.original_vim_pack_get then
       vim.pack.get = _G.test_state.original_vim_pack_get
+    end
+    if _G.test_state.original_vim_pack_del then
+      vim.pack.del = _G.test_state.original_vim_pack_del
     end
     if _G.test_state.original_vim_cmd_packadd then
       vim.cmd.packadd = _G.test_state.original_vim_cmd_packadd
@@ -293,6 +305,14 @@ end
 
 function M.cleanup_mock_plugin_dir(base_path)
   vim.fn.delete(base_path, 'rf')
+end
+
+function M.delete_zpack_commands(prefix)
+  prefix = prefix or 'Z'
+  local commands = { 'Update', 'Clean', 'Build', 'Load', 'Delete' }
+  for _, cmd in ipairs(commands) do
+    pcall(vim.api.nvim_del_user_command, prefix .. cmd)
+  end
 end
 
 return M

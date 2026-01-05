@@ -226,7 +226,7 @@ M.setup = function(prefix)
       end
 
       util.schedule_notify(("Deleting all %d installed plugin(s)..."):format(#names), vim.log.levels.INFO)
-      vim.pack.del(names)
+      vim.pack.del(names, { force = true })
       clear_all_state()
       util.schedule_notify(
         "All plugins deleted. This can result in errors in your current session. Restart Neovim to re-install them or remove them from your spec.",
@@ -239,7 +239,7 @@ M.setup = function(prefix)
       return
     end
 
-    vim.pack.del({ plugin_name })
+    vim.pack.del({ plugin_name }, { force = true })
     remove_from_state(plugin_name, pack.spec.src)
     util.schedule_notify(
       ('%s deleted. This can result in errors in your current session. Restart Neovim to re-install it or remove it from your spec.')
