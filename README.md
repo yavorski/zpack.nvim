@@ -7,22 +7,6 @@
 
 A thin layer on top of Neovim's native `vim.pack`, adding support for lazy-loading and the widely adopted lazy.nvim-like declarative spec.
 
-```lua
--- ./lua/plugins/fundo.lua
-return {
-  'kevinhwang91/nvim-fundo',
-  dependencies = { "kevinhwang91/promise-async" },
-  cond = not vim.g.vscode,
-  version = 'main',
-  build = function() require('fundo').install() end,
-  opts = {},
-  config = function(_, opts)
-    vim.o.undofile = true
-    require('fundo').setup(opts)
-  end,
-}
-```
-
 **[Why zpack?](#why-zpack)** | **[Examples](#examples)** | **[Spec Reference](#spec-reference)** | **[Migrating from lazy.nvim](#migrating-from-lazynvim)**
 
 ## Requirements
@@ -39,8 +23,8 @@ vim.pack.add({ 'https://github.com/zuqini/zpack.nvim' })
 ## Usage
 
 ```lua
--- Make sure to setup `mapleader` and `maplocalleader` before
--- loading zpack.nvim so that mappings are correct.
+-- Make sure to setup `mapleader` and `maplocalleader` before loading
+-- zpack.nvim so that keymaps referenced from zpack.Spec are aware
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
 
@@ -48,7 +32,37 @@ vim.g.maplocalleader = "\\"
 require('zpack').setup()
 ```
 
-### Commands
+#### Directory Structure
+
+Under the default setting, create plugin specs in `lua/plugins/`:
+
+```
+lua/
+  plugins/
+    treesitter.lua
+    lsp.lua
+    ...
+```
+
+Each file returns a spec or list of specs (see [examples](#examples) or [spec reference](#spec-reference)):
+
+```lua
+-- ./lua/plugins/fundo.lua
+return {
+  'kevinhwang91/nvim-fundo',
+  dependencies = { "kevinhwang91/promise-async" },
+  cond = not vim.g.vscode,
+  version = 'main',
+  build = function() require('fundo').install() end,
+  opts = {},
+  config = function(_, opts)
+    vim.o.undofile = true
+    require('fundo').setup(opts)
+  end,
+}
+```
+
+#### Commands
 
 zpack provides the following commands (default prefix: `Z`, customizable via `cmd_prefix` option):
 
@@ -59,37 +73,8 @@ zpack provides the following commands (default prefix: `Z`, customizable via `cm
 - `:ZDelete[!] [plugin]` - Remove a specific plugin, or all plugins with `!` (supports tab completion)
   - Deleting active plugins in your spec can result in errors in your current session. Restart Neovim to re-install them.
 
-### Directory Structure
 
-Under the default setting, create plugin specs in `lua/plugins/`:
-
-```
-lua/
-  plugins/
-    treesitter.lua
-    telescope.lua
-    lsp.lua
-```
-
-Each file returns a spec or list of specs (see [examples](#examples) or [spec reference](#spec-reference)):
-
-```lua
--- lua/plugins/telescope.lua
-return {
-  'nvim-telescope/telescope.nvim',
-  cmd = 'Telescope',
-  keys = {
-    { '<leader>ff', function() require('telescope.builtin').find_files() end, desc = 'Find files' },
-  },
-  opts = {},
-  -- config is executed when the plugin loads. The default implementation will automatically run require(MAIN).setup(opts) if opts or config = true is set.
-  config = function()
-    ...
-  end,
-}
-```
-
-### Configurations
+#### Configurations
 
 ```lua
 require('zpack').setup({
@@ -107,7 +92,7 @@ require('zpack').setup({
 
 Plugin-level settings always take precedence over `defaults`.
 
-### Importing Specs
+#### Importing Specs
 
 ```lua
 -- automatically import specs from `./lua/plugins/`
@@ -167,6 +152,30 @@ For more examples, refer to example config:
 - [zpack installation and setup](https://github.com/zuqini/nvim/blob/main/init.lua)
 - [plugins directory structure](https://github.com/zuqini/nvim/tree/main/lua/plugins)
 
+#### Plugin Spec
+
+```lua
+return {
+  'nvim-mini/mini.bracketed',
+  -- If `opts` or `config = true` is set,
+  -- the config hook calls `require(MAIN).setup(opts)` by default.
+  opts = {}, -- calls `require('mini.bracketed').setup({})`
+}
+```
+
+```lua
+return {
+  'nvim-lualine/lualine.nvim',
+  opts = { theme = 'tokyonight' },
+  -- Explicitly define a `config` function hook if you need to run custom logic on plugin load.
+  -- The resolved `zpack.Plugin` and `opts` table are passed as its arguments:
+  config = function(_, opts)
+    vim.opt.showmode = false 
+    require('lualine').setup(opts)
+  end,
+}
+```
+
 #### Lazy Load on Command
 
 ```lua
@@ -196,18 +205,17 @@ return {
 return {
   'windwp/nvim-autopairs',
   event = 'InsertEnter', -- Also supports 'VeryLazy'
-  opts = { check_ts = true },
+  opts = {},
 }
 ```
 
 #### Lazy Load on Event with Pattern
 
 ```lua
--- Inline pattern (same as lazy.nvim)
+-- Inline pattern
 return {
   'rust-lang/rust.vim',
   event = 'BufReadPre *.rs',
-  init = function() vim.g.rustfmt_autosave = 1 end,
 }
 
 -- Or using EventSpec for multiple patterns
@@ -229,7 +237,6 @@ Load plugin when opening files of specific types. Automatically re-triggers `Buf
 return {
   'rust-lang/rust.vim',
   ft = { 'rust', 'toml' },
-  init = function() vim.g.rustfmt_autosave = 1 end,
 }
 ```
 
@@ -302,26 +309,11 @@ return {
 Control plugin load order with priority (higher values load first; default: 50):
 
 ```lua
--- Startup plugin: load colorscheme early
+-- to load colorscheme early
 return {
   'folke/tokyonight.nvim',
   priority = 1000,
   config = function() vim.cmd('colorscheme tokyonight') end,
-}
-```
-
-#### Custom Config Function
-
-When you need custom configuration logic, use a `config` function. The resolved `opts` table is passed as the second argument:
-
-```lua
-return {
-  'nvim-lualine/lualine.nvim',
-  opts = { theme = 'tokyonight' },
-  config = function(_, opts)
-    opts.sections = { lualine_a = { 'mode' } }
-    require('lualine').setup(opts)
-  end,
 }
 ```
 
@@ -348,7 +340,7 @@ If automatic module detection fails, specify the module explicitly with `main`:
 return {
   'some/plugin-with-unusual-structure',
   main = 'plugin.core',
-  opts = { enabled = true },
+  opts = {},
 }
 ```
 

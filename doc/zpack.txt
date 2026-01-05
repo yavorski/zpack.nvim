@@ -44,8 +44,8 @@ Install zpack.nvim via vim.pack.add():
 4. USAGE                                                         *zpack-usage*
                                                                *zpack.setup()*
 >lua
-    -- Make sure to setup `mapleader` and `maplocalleader` before
-    -- loading zpack.nvim so that mappings are correct.
+    -- Make sure to setup `mapleader` and `maplocalleader` before loading
+    -- zpack.nvim so that keymaps referenced from zpack.Spec are aware
     vim.g.mapleader = " "
     vim.g.maplocalleader = "\\"
 
@@ -54,7 +54,37 @@ Install zpack.nvim via vim.pack.add():
 <
 
 ------------------------------------------------------------------------------
-4.1 COMMANDS                                                  *zpack-commands*
+4.1 DIRECTORY STRUCTURE                         *zpack-directory-structure*
+
+Under the default setting, create plugin specs in `lua/plugins/`:
+>
+    lua/
+      plugins/
+        treesitter.lua
+        lsp.lua
+        ...
+<
+
+Each file returns a spec or list of specs (see |zpack-examples| or
+|zpack-spec-reference|):
+>lua
+    -- ./lua/plugins/fundo.lua
+    return {
+      'kevinhwang91/nvim-fundo',
+      dependencies = { "kevinhwang91/promise-async" },
+      cond = not vim.g.vscode,
+      version = 'main',
+      build = function() require('fundo').install() end,
+      opts = {},
+      config = function(_, opts)
+        vim.o.undofile = true
+        require('fundo').setup(opts)
+      end,
+    }
+<
+
+------------------------------------------------------------------------------
+4.2 COMMANDS                                                  *zpack-commands*
 
 zpack provides the following commands (default prefix: `Z`, customizable via
 |zpack-setup-cmd_prefix|):
@@ -94,40 +124,6 @@ zpack provides the following commands (default prefix: `Z`, customizable via
                 tab completion of installed plugin names. Deleting active
                 plugins in your spec can result in errors in your current
                 session. Restart Neovim to re-install them.
-
-------------------------------------------------------------------------------
-4.2 DIRECTORY STRUCTURE                         *zpack-directory-structure*
-
-Under the default setting, create plugin specs in `lua/plugins/`:
->
-    lua/
-      plugins/
-        treesitter.lua
-        telescope.lua
-        lsp.lua
-<
-
-Each file returns a spec or list of specs (see |zpack-examples| or
-|zpack-spec-reference|):
->lua
-    -- lua/plugins/telescope.lua
-    return {
-      'nvim-telescope/telescope.nvim',
-      cmd = 'Telescope',
-      keys = {
-        { '<leader>ff',
-          function() require('telescope.builtin').find_files() end,
-          desc = 'Find files' },
-      },
-      opts = {},
-      -- config is executed when the plugin loads.
-      -- The default implementation will automatically run
-      -- require(MAIN).setup(opts) if opts or config = true is set.
-      config = function()
-        ...
-      end,
-    }
-<
 
 ------------------------------------------------------------------------------
 4.3 CONFIGURATIONS                                     *zpack-configurations*
@@ -276,7 +272,33 @@ For more examples, refer to example config:
   https://github.com/zuqini/nvim/tree/main/lua/plugins
 
 ------------------------------------------------------------------------------
-6.1 LAZY LOAD ON COMMAND                                   *zpack-example-cmd*
+6.1 PLUGIN SPEC                                           *zpack-example-spec*
+
+>lua
+    return {
+      'nvim-mini/mini.bracketed',
+      -- If `opts` or `config = true` is set,
+      -- the config hook calls `require(MAIN).setup(opts)` by default.
+      opts = {}, -- calls `require('mini.bracketed').setup({})`
+    }
+<
+
+>lua
+    return {
+      'nvim-lualine/lualine.nvim',
+      opts = { theme = 'tokyonight' },
+      -- Explicitly define a `config` function hook if you need to run
+      -- custom logic on plugin load.
+      -- The resolved `zpack.Plugin` and `opts` table are passed as arguments:
+      config = function(_, opts)
+        vim.opt.showmode = false
+        require('lualine').setup(opts)
+      end,
+    }
+<
+
+------------------------------------------------------------------------------
+6.2 LAZY LOAD ON COMMAND                                   *zpack-example-cmd*
 
 Load plugin when a specific command is executed:
 >lua
@@ -288,7 +310,7 @@ Load plugin when a specific command is executed:
 <
 
 ------------------------------------------------------------------------------
-6.2 LAZY LOAD ON KEYMAP                                   *zpack-example-keys*
+6.3 LAZY LOAD ON KEYMAP                                   *zpack-example-keys*
 
 Load plugin when a specific keymap is triggered:
 >lua
@@ -305,28 +327,27 @@ Load plugin when a specific keymap is triggered:
 <
 
 ------------------------------------------------------------------------------
-6.3 LAZY LOAD ON EVENT                                   *zpack-example-event*
+6.4 LAZY LOAD ON EVENT                                   *zpack-example-event*
 
 Load plugin when a specific event is triggered:
 >lua
     return {
       'windwp/nvim-autopairs',
       event = 'InsertEnter', -- Also supports 'VeryLazy'
-      opts = { check_ts = true },
+      opts = {},
     }
 <
 
 ------------------------------------------------------------------------------
-6.4 LAZY LOAD ON EVENT WITH PATTERN              *zpack-example-event-pattern*
+6.5 LAZY LOAD ON EVENT WITH PATTERN              *zpack-example-event-pattern*
 
 Load plugin on specific events with file patterns:
 
-Inline pattern (same as lazy.nvim):
+Inline pattern:
 >lua
     return {
       'rust-lang/rust.vim',
       event = 'BufReadPre *.rs',
-      init = function() vim.g.rustfmt_autosave = 1 end,
     }
 <
 
@@ -343,7 +364,7 @@ Or using EventSpec for multiple patterns:
 <
 
 ------------------------------------------------------------------------------
-6.5 LAZY LOAD ON FILETYPE                                 *zpack-example-ft*
+6.6 LAZY LOAD ON FILETYPE                                 *zpack-example-ft*
 
 Load plugin when opening files of specific types. Automatically re-triggers
 BufReadPre, BufReadPost, and FileType events to ensure LSP clients and
@@ -352,12 +373,11 @@ Treesitter attach properly:
     return {
       'rust-lang/rust.vim',
       ft = { 'rust', 'toml' },
-      init = function() vim.g.rustfmt_autosave = 1 end,
     }
 <
 
 ------------------------------------------------------------------------------
-6.6 CONDITIONAL LOADING                            *zpack-example-conditional*
+6.7 CONDITIONAL LOADING                            *zpack-example-conditional*
 
 Use `enabled` to skip `vim.pack.add` entirely, or `cond` to conditionally
 load after calling `vim.pack.add`:
@@ -371,7 +391,7 @@ load after calling `vim.pack.add`:
 <
 
 ------------------------------------------------------------------------------
-6.7 USING PLUGIN DATA IN HOOKS                     *zpack-example-plugin-data*
+6.8 USING PLUGIN DATA IN HOOKS                     *zpack-example-plugin-data*
 
 All lifecycle hooks (`init`, `config`, `build`, `cond`) and lazy-loading
 triggers (`event`, `cmd`, `keys`, `ft`) can be functions that receive a
@@ -388,11 +408,11 @@ triggers (`event`, `cmd`, `keys`, `ft`) can be functions that receive a
 <
 
 ------------------------------------------------------------------------------
-6.8 LOAD PRIORITY                                     *zpack-example-priority*
+6.9 LOAD PRIORITY                                     *zpack-example-priority*
 
 Control load order with priority (higher loads first; default: 50):
 >lua
-    -- Startup plugin: load colorscheme early
+    -- to load colorscheme early
     return {
       'folke/tokyonight.nvim',
       priority = 1000,
@@ -401,7 +421,7 @@ Control load order with priority (higher loads first; default: 50):
 <
 
 ------------------------------------------------------------------------------
-6.9 VERSION PINNING                                    *zpack-example-version*
+6.10 VERSION PINNING                                   *zpack-example-version*
 
 `vim.pack.add` expects `string|vim.VersionRange`.
 
@@ -429,22 +449,6 @@ For lazy.nvim compatibility: ~
 <
 
 ------------------------------------------------------------------------------
-6.10 CUSTOM CONFIG FUNCTION                         *zpack-example-config*
-
-When you need custom configuration logic, use a `config` function. The
-resolved `opts` table is passed as the second argument:
->lua
-    return {
-      'nvim-lualine/lualine.nvim',
-      opts = { theme = 'tokyonight' },
-      config = function(_, opts)
-        opts.sections = { lualine_a = { 'mode' } }
-        require('lualine').setup(opts)
-      end,
-    }
-<
-
-------------------------------------------------------------------------------
 6.11 EXPLICIT MAIN MODULE                            *zpack-example-main*
 
 If automatic module detection fails, specify the module with `main`:
@@ -452,7 +456,7 @@ If automatic module detection fails, specify the module with `main`:
     return {
       'some/plugin-with-unusual-structure',
       main = 'plugin.core',
-      opts = { enabled = true },
+      opts = {},
     }
 <
 
