@@ -1,4 +1,6 @@
-# zpack.nvim
+<h1 align="center">
+  <img height="80px" src="https://github.com/user-attachments/assets/079c0646-7043-4397-b826-e4e893b2cf60" alt="zpack.nvim">
+</h1>
 <div align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/zuqini/zpack.nvim/tests.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=tests&labelColor=1e1b4b"> <img src="https://img.shields.io/github/issues/zuqini/zpack.nvim?style=for-the-badge&logo=github&logoColor=white&color=8b5cf6&labelColor=1e1b4b"> <img src="https://img.shields.io/github/issues-pr/zuqini/zpack.nvim?style=for-the-badge&logo=github&logoColor=white&color=8b5cf6&labelColor=1e1b4b">
 
@@ -475,3 +477,5 @@ See [snacks.nvim#1778](https://github.com/folke/snacks.nvim/issues/1778) for mor
 ## Acknowledgements
 
 zpack's spec design and several features are inspired by [lazy.nvim](https://github.com/folke/lazy.nvim). Credit to folke for the excellent plugin manager that influenced this project.
+
+zpack's logo is designed by [DodolCat](https://www.instagram.com/_dodolcat/).
