@@ -42,9 +42,13 @@ M.reset_lsdir_cache = function()
   lsdir_cache = {}
 end
 
+M.notify = function(msg, level)
+  vim.notify('[zpack.nvim] ' .. msg, level)
+end
+
 M.schedule_notify = function(msg, level)
   vim.schedule(function()
-    vim.notify(msg, level)
+    M.notify(msg, level)
   end)
 end
 
@@ -166,6 +170,21 @@ M.normalize_name = function(name)
   local norm = (name:lower():gsub("^n?vim%-", ""):gsub("%.n?vim$", ""):gsub("[%.%-]lua", ""):gsub("[^a-z]+", ""))
   normalized_name_cache[name] = norm
   return norm
+end
+
+---Check if a string looks like a semver range (not a branch/tag/commit)
+---@param str any
+---@return boolean
+M.is_semver_like = function(str)
+  if type(str) ~= 'string' then
+    return false
+  end
+  return str:match('%*') ~= nil
+      or str:match('^%d[%d%.]*%.[xX]$') ~= nil
+      or str:match('^%d[%d%.]*%.%a') ~= nil
+      or str:match('^[>=<^~]') ~= nil
+      or str:match('[>=<]') ~= nil
+      or str:match('^%d+[%d%.]*$') ~= nil
 end
 
 ---Normalize plugin version using priority: version > sem_version > branch > tag > commit

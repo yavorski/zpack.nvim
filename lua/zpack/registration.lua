@@ -6,7 +6,7 @@ local M = {}
 
 ---@param ctx zpack.ProcessContext
 M.register_all = function(ctx)
-  vim.pack.add(ctx.vim_packs, {
+  local ok, err = pcall(vim.pack.add, ctx.vim_packs, {
     confirm = ctx.confirm,
     load = function(plugin)
       local pack_spec = plugin.spec
@@ -42,6 +42,27 @@ M.register_all = function(ctx)
       end
     end
   })
+
+  if not ok then
+    local semver_like_specs = {}
+    for _, pack_spec in ipairs(ctx.vim_packs) do
+      if pack_spec.version and utils.is_semver_like(pack_spec.version) then
+        table.insert(semver_like_specs, pack_spec)
+      end
+    end
+    if #semver_like_specs > 0 then
+      utils.notify('`vim.pack.add` failed.', vim.log.levels.WARN)
+      for _, pack_spec in ipairs(semver_like_specs) do
+        utils.notify(
+          ('Is `version = "%s"` for %s meant to be a semver range?\n'
+            .. 'Consider using `sem_version = "%s"` or `version = vim.version.range("%s")` instead.')
+            :format(pack_spec.version, pack_spec.src, pack_spec.version, pack_spec.version),
+          vim.log.levels.WARN
+        )
+      end
+    end
+    error(err)
+  end
 
   table.sort(ctx.registered_startup_packs, utils.compare_priority)
   table.sort(ctx.registered_lazy_packs, utils.compare_priority)

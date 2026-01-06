@@ -38,7 +38,7 @@ M.notify_removed = function(key)
   local entry = M.removed[key]
   if not entry then return end
   utils.schedule_notify(
-    ("[zpack] REMOVED: %s\n\n%s"):format(entry.message, entry.replacement),
+    ("REMOVED: %s\n\n%s"):format(entry.message, entry.replacement),
     vim.log.levels.WARN
   )
 end
@@ -47,7 +47,7 @@ M.notify_deprecated = function(key)
   local entry = M.deprecated[key]
   if not entry then return end
   utils.schedule_notify(
-    ("[zpack] DEPRECATED: %s\n\n%s"):format(entry.message, entry.replacement),
+    ("DEPRECATED: %s\n\n%s"):format(entry.message, entry.replacement),
     vim.log.levels.WARN
   )
 end

@@ -1,3 +1,4 @@
+---@diagnostic disable: duplicate-set-field
 local M = {}
 
 M.test_results = {}
@@ -74,6 +75,7 @@ function M.test(name, fn)
     table.insert(M.test_results, { name = name, passed = false, error = err })
     print(string.format("✗ %s", name))
     print(string.format("  Error: %s", err))
+    M.cleanup_test_env()
   end
 end
 

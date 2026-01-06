@@ -27,9 +27,7 @@ end
 
 local function check_version()
   if vim.fn.has('nvim-0.12') ~= 1 then
-    vim.schedule(function()
-      vim.notify('zpack.nvim requires Neovim 0.12+', vim.log.levels.ERROR)
-    end)
+    require('zpack.utils').schedule_notify('requires Neovim 0.12+', vim.log.levels.ERROR)
     return false
   end
   return true

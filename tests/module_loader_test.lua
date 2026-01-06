@@ -1,3 +1,4 @@
+---@diagnostic disable: duplicate-set-field
 local helpers = require('helpers')
 
 return function()

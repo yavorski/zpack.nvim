@@ -118,4 +118,74 @@ return function()
       helpers.cleanup_test_env()
     end)
   end)
+
+  helpers.describe("is_semver_like utility", function()
+    helpers.test("detects wildcard patterns", function()
+      helpers.setup_test_env()
+      local utils = require('zpack.utils')
+
+      helpers.assert_equal(utils.is_semver_like('1.*'), true)
+      helpers.assert_equal(utils.is_semver_like('*'), true)
+      helpers.assert_equal(utils.is_semver_like('1.2.*'), true)
+      helpers.assert_equal(utils.is_semver_like('1.2.x'), true)
+      helpers.assert_equal(utils.is_semver_like('1.x'), true)
+      helpers.assert_equal(utils.is_semver_like('1.X'), true)
+      helpers.assert_equal(utils.is_semver_like('1.2.X'), true)
+      helpers.assert_equal(utils.is_semver_like('1.2.y'), true)
+      helpers.assert_equal(utils.is_semver_like('1.a.b'), true)
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("detects range operators", function()
+      helpers.setup_test_env()
+      local utils = require('zpack.utils')
+
+      helpers.assert_equal(utils.is_semver_like('>=1.0.0'), true)
+      helpers.assert_equal(utils.is_semver_like('<=2.0.0'), true)
+      helpers.assert_equal(utils.is_semver_like('>1.0'), true)
+      helpers.assert_equal(utils.is_semver_like('<2.0'), true)
+      helpers.assert_equal(utils.is_semver_like('^1.0.0'), true)
+      helpers.assert_equal(utils.is_semver_like('~1.0.0'), true)
+      helpers.assert_equal(utils.is_semver_like('foo=bar'), true)
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("detects bare semver patterns", function()
+      helpers.setup_test_env()
+      local utils = require('zpack.utils')
+
+      helpers.assert_equal(utils.is_semver_like('1.0.0'), true)
+      helpers.assert_equal(utils.is_semver_like('1.2'), true)
+      helpers.assert_equal(utils.is_semver_like('1.2.3.4'), true)
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("returns false for branch/tag names", function()
+      helpers.setup_test_env()
+      local utils = require('zpack.utils')
+
+      helpers.assert_equal(utils.is_semver_like('main'), false)
+      helpers.assert_equal(utils.is_semver_like('master'), false)
+      helpers.assert_equal(utils.is_semver_like('v1.0.0'), false)
+      helpers.assert_equal(utils.is_semver_like('v1.x'), false)
+      helpers.assert_equal(utils.is_semver_like('release-1.0'), false)
+      helpers.assert_equal(utils.is_semver_like('feature/foo'), false)
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("returns false for non-strings", function()
+      helpers.setup_test_env()
+      local utils = require('zpack.utils')
+
+      helpers.assert_equal(utils.is_semver_like(nil), false)
+      helpers.assert_equal(utils.is_semver_like(123), false)
+      helpers.assert_equal(utils.is_semver_like({}), false)
+
+      helpers.cleanup_test_env()
+    end)
+  end)
 end
