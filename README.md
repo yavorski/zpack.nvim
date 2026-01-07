@@ -159,8 +159,8 @@ For more examples, refer to example config:
 ```lua
 return {
   'nvim-mini/mini.bracketed',
-  -- If `opts` or `config = true` is set,
-  -- the config hook calls `require(MAIN).setup(opts)` by default.
+  -- If `opts` or `config = true` is set, the config hook calls
+  --    `require(MAIN).setup(opts)` by default.
   opts = {}, -- calls `require('mini.bracketed').setup({})`
 }
 ```
