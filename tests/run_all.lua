@@ -25,6 +25,7 @@ local test_modules = {
   'dependencies_test',
   'module_loader_test',
   'zdelete_test',
+  'zclean_test',
 }
 
 print("\n" .. string.rep("=", 60))

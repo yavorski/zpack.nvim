@@ -151,17 +151,27 @@ function M.setup_test_env()
   _G.test_state.registered_pack_specs = {}
   vim.pack.get = function(names)
     local results = {}
-    for _, name in ipairs(names) do
-      local pack_spec = _G.test_state.registered_pack_specs[name]
-      if pack_spec then
+    if names == nil or #names == 0 then
+      for name, pack_spec in pairs(_G.test_state.registered_pack_specs) do
         table.insert(results, {
           spec = pack_spec,
           path = vim.fn.stdpath('data') .. '/site/pack/zpack/opt/' .. name,
           name = name,
         })
       end
+    else
+      for _, name in ipairs(names) do
+        local pack_spec = _G.test_state.registered_pack_specs[name]
+        if pack_spec then
+          table.insert(results, {
+            spec = pack_spec,
+            path = vim.fn.stdpath('data') .. '/site/pack/zpack/opt/' .. name,
+            name = name,
+          })
+        end
+      end
     end
-    return #results > 0 and results or nil
+    return #results > 0 and results or {}
   end
 
   _G.test_state.original_vim_pack_del = vim.pack.del

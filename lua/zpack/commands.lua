@@ -70,10 +70,12 @@ end
 
 M.clean_unused = function()
   local to_delete = {}
+  local installed = vim.pack.get() or {}
 
-  for _, spec in ipairs(state.registered_plugins) do
-    if not state.spec_registry[spec.src] and not string.find(spec.src, 'zpack') then
-      table.insert(to_delete, spec.name)
+  for _, pack in ipairs(installed) do
+    local src = pack.spec.src
+    if not state.spec_registry[src] and not string.find(src, 'zpack') then
+      table.insert(to_delete, pack.spec.name)
     end
   end
 
