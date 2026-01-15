@@ -135,13 +135,12 @@ Neovim 0.12+ includes a built-in package manager (`vim.pack`) that handles plugi
     - Basic plugin management commands
 
 zpack might be for you if:
-- you're a lazy.nvim user, love its declarative spec, and its wide adoption by plugin authors, but you don't need most of its advanced features
-- you're a lazy.nvim user, want to migrate to `vim.pack`, but don't want to rewrite your entire plugins spec from scratch
-- you want to use `vim.pack`, but still looking for a few core quality of life features like:
-    - run build commands only when plugin installs/updates
-    - a minimalist set of commands and tools to manage your plugin's lifecycle e.g. updates, cleaning, and builds
-    - lazy-loading triggers for a faster startup on slower machines
-    - lazy.nvim's declarative plugin spec support to keep your main neovim config neat and tidy
+- you're a lazy.nvim user but don't need most of its advanced features. You just want a light plugin manager that works, backed by what's already built-in
+- you want to continue to use lazy.nvim's widely adopted declarative spec to organize your plugins, and follow the same plugin install instructions for lazy.nvim seamlessly
+- you simplified your config to use `vim.pack` as-is, but you miss one or more of the following quality of life features:
+    - build hooks that only run on install/update
+    - minimalist commands and tools to manage your plugin's lifecycle (update, cleaning, build)
+    - lazy-loading triggers to avoid getting bogged down by slow plugins or to make weak machines bearable
 
 As a thin layer, zpack does not provide:
 - UI dashboard for your plugins
