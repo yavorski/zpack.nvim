@@ -255,7 +255,7 @@ zpack might be for you if:
       to make weak machines bearable
 
 As a thin layer, zpack does not provide:
-- UI dashboard for your plugins
+- UI dashboard for your plugins (see |zpack-extensions|)
 - Advanced profiling, dev mode, change-detection, etc.
 
 If you're a lazy.nvim user, see |zpack-migrating-lazy|.
@@ -879,7 +879,14 @@ To work around this, remove the startup section from your dashboard config:
 See: https://github.com/folke/snacks.nvim/issues/1778
 
 ==============================================================================
-12. ACKNOWLEDGEMENTS                               *zpack-acknowledgements*
+12. EXTENSIONS                                           *zpack-extensions*
+
+- zshow.nvim: A floating window UI for viewing installed plugins, grouped
+  by load status.
+  https://github.com/sairyy/zshow.nvim
+
+==============================================================================
+13. ACKNOWLEDGEMENTS                               *zpack-acknowledgements*
 
 zpack's spec design and several features are inspired by lazy.nvim
 (https://github.com/folke/lazy.nvim). Credit to folke for the excellent

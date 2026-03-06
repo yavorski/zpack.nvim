@@ -143,7 +143,7 @@ zpack might be for you if:
     - lazy-loading triggers to avoid getting bogged down by slow plugins or to make weak machines bearable
 
 As a thin layer, zpack does not provide:
-- UI dashboard for your plugins
+- UI dashboard for your plugins (see [Extensions](#extensions) for community solutions)
 - Advanced profiling, dev mode, change-detection, etc.
 
 If you're a lazy.nvim user, see [Migrating from lazy.nvim](#migrating-from-lazynvim)
@@ -472,6 +472,10 @@ require('snacks').setup({
 ```
 
 See [snacks.nvim#1778](https://github.com/folke/snacks.nvim/issues/1778) for more details.
+
+## Extensions
+
+- [zshow.nvim](https://github.com/sairyy/zshow.nvim) — A floating window UI for viewing installed plugins, grouped by load status.
 
 ## Acknowledgements
 
