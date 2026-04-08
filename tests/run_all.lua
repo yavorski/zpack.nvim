@@ -28,6 +28,8 @@ local test_modules = {
   'zclean_test',
   'zupdate_test',
   'zrestore_test',
+  'is_single_spec_test',
+  'source_plugin_files_test',
 }
 
 print("\n" .. string.rep("=", 60))

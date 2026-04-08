@@ -95,6 +95,23 @@ M.process_spec = function(pack_spec, opts)
 
   registry_entry.load_status = "loading"
 
+  local spec = registry_entry.merged_spec
+  local plugin = registry_entry.plugin
+
+  if not plugin then
+    utils.schedule_notify(("Cannot load %s: plugin not registered"):format(pack_spec.src), vim.log.levels.ERROR)
+    return
+  end
+
+  local name = plugin.spec.name
+  vim.cmd.packadd({ name, bang = opts.bang })
+
+  -- packadd may skip sourcing plugin files when vim.pack.add() already
+  -- added the plugin to the rtp. Source them explicitly.
+  if not opts.bang and plugin.path then
+    utils.source_plugin_files(plugin.path)
+  end
+
   local deps = state.dependency_graph[pack_spec.src]
   if deps then
     for dep_src in pairs(deps) do
@@ -112,17 +129,6 @@ M.process_spec = function(pack_spec, opts)
       end
     end
   end
-
-  local spec = registry_entry.merged_spec
-  local plugin = registry_entry.plugin
-
-  if not plugin then
-    utils.schedule_notify(("Cannot load %s: plugin not registered"):format(pack_spec.src), vim.log.levels.ERROR)
-    return
-  end
-
-  local name = plugin.spec.name
-  vim.cmd.packadd({ name, bang = opts.bang })
 
   if spec.config or spec.opts ~= nil then
     M.run_config(pack_spec.src, plugin, spec)

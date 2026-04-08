@@ -44,15 +44,31 @@ local get_source_url = function(spec)
   return src
 end
 
+---Check if a table has any non-integer keys
+---@param tbl table
+---@return boolean
+local has_non_integer_keys = function(tbl)
+  for k in pairs(tbl) do
+    if type(k) ~= "number" then
+      return true
+    end
+  end
+  return false
+end
+
 ---Check if value is a single spec (not a list of specs)
+---A single spec has a source identifier ([1]=string, src, dir, url) and may have
+---spec fields (opts, config, etc). A list of specs has tables or strings as elements.
 ---@param value zpack.Spec|zpack.Spec[]
 ---@return boolean
 local is_single_spec = function(value)
-  return type(value[1]) == "string"
-      or value.src ~= nil
-      or value.dir ~= nil
-      or value.url ~= nil
-      or value.import ~= nil
+  if value.src ~= nil or value.dir ~= nil or value.url ~= nil or value.import ~= nil then
+    return true
+  end
+  if type(value[1]) == "string" then
+    return value[2] == nil or has_non_integer_keys(value)
+  end
+  return false
 end
 
 ---Check if spec is an import spec
@@ -77,7 +93,10 @@ local normalize_dependencies = function(deps, parent_src)
     )
     return {}
   end
-  if type(deps[1]) == "string" and deps.src == nil and deps.dir == nil and deps.url == nil then
+  if is_single_spec(deps) then
+    return { deps }
+  end
+  if type(deps[1]) == "string" then
     local result = {}
     for i, dep in ipairs(deps) do
       if type(dep) == "string" then
@@ -93,7 +112,7 @@ local normalize_dependencies = function(deps, parent_src)
     end
     return result
   end
-  return is_single_spec(deps) and { deps } or deps
+  return deps
 end
 
 ---Load a spec module and import its specs
