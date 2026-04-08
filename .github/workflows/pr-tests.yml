@@ -9,9 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Note: zpack requires Neovim 0.12.0+
-        # Once 0.12.0 is released, add 'v0.12.0' to test against stable
-        neovim-version: ['nightly']
+        neovim-version: ['v0.12.0', 'nightly']
 
     steps:
       - name: Checkout code

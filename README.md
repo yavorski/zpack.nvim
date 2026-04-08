@@ -69,6 +69,7 @@ return {
 zpack provides the following commands (default prefix: `Z`, customizable via `cmd_prefix` option):
 
 - `:ZUpdate [plugin]` - Update all plugins, or a specific plugin if provided (supports tab completion). See `:h vim.pack.update()`
+- `:ZRestore [plugin]` - Restore all plugins, or a specific plugin, to the lockfile state (supports tab completion). Requires a lockfile to exist (created automatically by `:ZUpdate`). See `:h vim.pack.update()`
 - `:ZClean` - Remove plugins that are no longer in your spec
 - `:ZBuild[!] [plugin]` - Run build hook for a specific plugin, or all plugins with `!` (supports tab completion)
 - `:ZLoad[!] [plugin]` - Load a specific unloaded plugin, or all unloaded plugins with `!` (supports tab completion)

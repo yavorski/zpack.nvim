@@ -11,7 +11,6 @@ return function()
       helpers.assert_not_nil(cmds['ZLoad'], "ZLoad command should exist")
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("lazy plugin is tracked as unloaded", function()
@@ -35,7 +34,6 @@ return function()
       )
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("startup plugin is not tracked as unloaded", function()
@@ -59,7 +57,6 @@ return function()
       )
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("plugin is removed from unloaded list when loaded", function()
@@ -91,7 +88,6 @@ return function()
       )
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("ZLoad without bang shows warning", function()
@@ -123,7 +119,6 @@ return function()
       helpers.assert_true(found_warning, "Should show warning about using ZLoad!")
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("ZLoad! loads all unloaded plugins", function()
@@ -158,7 +153,6 @@ return function()
       helpers.assert_true(config_called['plugin-b'], "Plugin B config should be called")
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("ZLoad! with no unloaded plugins shows info message", function()
@@ -190,7 +184,6 @@ return function()
       helpers.assert_true(found_info, "Should show info that all plugins are loaded")
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("ZLoad already loaded plugin shows info message", function()
@@ -222,7 +215,6 @@ return function()
       helpers.assert_true(found_info, "Should show info that plugin is already loaded")
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
   end)
 end
