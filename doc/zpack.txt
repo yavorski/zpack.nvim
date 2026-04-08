@@ -95,6 +95,17 @@ zpack provides the following commands (default prefix: `Z`, customizable via
                 a specific plugin if a name is provided. Supports tab
                 completion of installed plugin names. See |vim.pack.update()|.
 
+                                                                   *:ZRestore*
+:ZRestore [plugin]
+                Restore all plugins or a specific plugin to the state
+                recorded in the lockfile. This calls
+                |vim.pack.update()| with `target = 'lockfile'`. Useful
+                for synchronizing plugins across machines or reverting
+                after an update. Requires a lockfile to exist (created
+                automatically by |:ZUpdate|). Displays an error if no
+                lockfile exists or the restore otherwise fails.
+                Supports tab completion of registered plugin names.
+
                                                                      *:ZClean*
 :ZClean         Remove plugins that are no longer in your spec. This compares
                 installed plugins with your current spec and deletes any that

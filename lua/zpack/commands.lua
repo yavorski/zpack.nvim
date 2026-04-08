@@ -31,41 +31,44 @@ local filter_completions = function(list, prefix)
   end, list)
 end
 
-local get_plugin_or_notify = function(plugin_name)
+local is_registered_or_notify = function(plugin_name)
+  if not vim.tbl_contains(state.registered_plugin_names, plugin_name) then
+    util.schedule_notify(('Plugin "%s" not found in spec'):format(plugin_name), vim.log.levels.ERROR)
+    return false
+  end
+  return true
+end
+
+-- Branches avoid passing trailing nils because vim.pack.update uses
+-- select('#', ...) to distinguish "no args" from "nil args".
+local run_pack_update = function(plugin_name, update_opts, error_prefix)
+  local names
+  if plugin_name ~= '' then
+    if not is_registered_or_notify(plugin_name) then return end
+    names = { plugin_name }
+  end
+  local ok, err
+  if names and update_opts then
+    ok, err = pcall(vim.pack.update, names, update_opts)
+  elseif names then
+    ok, err = pcall(vim.pack.update, names)
+  elseif update_opts then
+    ok, err = pcall(vim.pack.update, nil, update_opts)
+  else
+    ok, err = pcall(vim.pack.update)
+  end
+  if not ok then
+    util.schedule_notify(('%s: %s'):format(error_prefix, err), vim.log.levels.ERROR)
+  end
+end
+
+local get_installed_or_notify = function(plugin_name)
   local ok, result = pcall(vim.pack.get, { plugin_name })
   if not ok or not result or not result[1] then
-    util.schedule_notify(('Plugin "%s" not found'):format(plugin_name), vim.log.levels.ERROR)
+    util.schedule_notify(('Plugin "%s" not installed'):format(plugin_name), vim.log.levels.ERROR)
     return nil
   end
   return result[1]
-end
-
-local remove_from_state = function(plugin_name, src)
-  state.spec_registry[src] = nil
-  state.src_with_pending_build[src] = nil
-
-  state.registered_plugins = vim.tbl_filter(function(spec)
-    return spec.name ~= plugin_name
-  end, state.registered_plugins)
-
-  state.registered_plugin_names = vim.tbl_filter(function(name)
-    return name ~= plugin_name
-  end, state.registered_plugin_names)
-
-  state.plugin_names_with_build = vim.tbl_filter(function(name)
-    return name ~= plugin_name
-  end, state.plugin_names_with_build)
-
-  state.unloaded_plugin_names[plugin_name] = nil
-end
-
-local clear_all_state = function()
-  state.spec_registry = {}
-  state.src_with_pending_build = {}
-  state.registered_plugins = {}
-  state.registered_plugin_names = {}
-  state.plugin_names_with_build = {}
-  state.unloaded_plugin_names = {}
 end
 
 M.clean_unused = function()
@@ -100,20 +103,24 @@ M.setup = function(prefix)
     return
   end
 
+  local complete_registered = function(arg_lead)
+    return filter_completions(state.registered_plugin_names, arg_lead)
+  end
+
   create_command(prefix .. 'Update', function(opts)
-    local plugin_name = opts.args
-    if plugin_name == '' then
-      vim.pack.update()
-    else
-      if not get_plugin_or_notify(plugin_name) then
-        return
-      end
-      vim.pack.update({ plugin_name })
-    end
+    run_pack_update(opts.args, nil, 'Update failed')
   end, {
     nargs = '?',
     desc = 'Update all plugins or a specific plugin',
-    complete = function(arg_lead) return filter_completions(state.registered_plugin_names, arg_lead) end,
+    complete = complete_registered,
+  })
+
+  create_command(prefix .. 'Restore', function(opts)
+    run_pack_update(opts.args, { target = 'lockfile' }, 'Restore failed (have you run :' .. prefix .. 'Update?)')
+  end, {
+    nargs = '?',
+    desc = 'Restore all plugins or a specific plugin to lockfile state',
+    complete = complete_registered,
   })
 
   create_command(prefix .. 'Clean', function()
@@ -133,7 +140,7 @@ M.setup = function(prefix)
       return
     end
 
-    local pack = get_plugin_or_notify(plugin_name)
+    local pack = get_installed_or_notify(plugin_name)
     if not pack then
       return
     end
@@ -181,7 +188,7 @@ M.setup = function(prefix)
       return
     end
 
-    local pack = get_plugin_or_notify(plugin_name)
+    local pack = get_installed_or_notify(plugin_name)
     if not pack then
       return
     end
@@ -230,20 +237,20 @@ M.setup = function(prefix)
 
       util.schedule_notify(("Deleting all %d installed plugin(s)..."):format(#names), vim.log.levels.INFO)
       vim.pack.del(names, { force = true })
-      clear_all_state()
+      state.clear_plugin_lists()
       util.schedule_notify(
         "All plugins deleted. This can result in errors in your current session. Restart Neovim to re-install them or remove them from your spec.",
         vim.log.levels.WARN)
       return
     end
 
-    local pack = get_plugin_or_notify(plugin_name)
+    local pack = get_installed_or_notify(plugin_name)
     if not pack then
       return
     end
 
     vim.pack.del({ plugin_name }, { force = true })
-    remove_from_state(plugin_name, pack.spec.src)
+    state.remove_plugin(plugin_name, pack.spec.src)
     util.schedule_notify(
       ('%s deleted. This can result in errors in your current session. Restart Neovim to re-install it or remove it from your spec.')
       :format(plugin_name),

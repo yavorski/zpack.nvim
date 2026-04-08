@@ -182,6 +182,12 @@ function M.setup_test_env()
       _G.test_state.registered_pack_specs[name] = nil
     end
   end
+
+  _G.test_state.original_vim_pack_update = vim.pack.update
+  _G.test_state.vim_pack_update_calls = {}
+  vim.pack.update = function(names, opts)
+    table.insert(_G.test_state.vim_pack_update_calls, { names = names, opts = opts })
+  end
 end
 
 function M.cleanup_test_env()
@@ -210,6 +216,9 @@ function M.cleanup_test_env()
     if _G.test_state.original_vim_pack_del then
       vim.pack.del = _G.test_state.original_vim_pack_del
     end
+    if _G.test_state.original_vim_pack_update then
+      vim.pack.update = _G.test_state.original_vim_pack_update
+    end
     if _G.test_state.original_vim_cmd_packadd then
       vim.cmd.packadd = _G.test_state.original_vim_cmd_packadd
     end
@@ -219,6 +228,8 @@ function M.cleanup_test_env()
   end
 
   _G.test_state = nil
+
+  M.delete_zpack_commands()
 
   -- Force reload all zpack modules to reset state
   package.loaded['zpack.state'] = nil
@@ -321,7 +332,7 @@ end
 
 function M.delete_zpack_commands(prefix)
   prefix = prefix or 'Z'
-  local commands = { 'Update', 'Clean', 'Build', 'Load', 'Delete' }
+  local commands = { 'Update', 'Clean', 'Build', 'Load', 'Restore', 'Delete' }
   for _, cmd in ipairs(commands) do
     pcall(vim.api.nvim_del_user_command, prefix .. cmd)
   end

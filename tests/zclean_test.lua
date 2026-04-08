@@ -29,7 +29,6 @@ return function()
       helpers.assert_equal(#call.names, 1, "only orphan plugin should be deleted")
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("ZClean does not delete plugins in spec", function()
@@ -60,7 +59,6 @@ return function()
       helpers.assert_true(found_info, "Should show info that no unused plugins exist")
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
 
     helpers.test("ZClean detects multiple orphan plugins", function()
@@ -92,7 +90,6 @@ return function()
       helpers.assert_equal(#call.names, 2, "both orphan plugins should be deleted")
 
       helpers.cleanup_test_env()
-      helpers.delete_zpack_commands()
     end)
   end)
 end

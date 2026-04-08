@@ -33,11 +33,57 @@ M.src_with_pending_build = {}
 
 ---@type vim.pack.Spec[]
 M.registered_plugins = {}
----@type string[]
+---@type string[] -- kept sorted for tab completion
 M.registered_plugin_names = { 'zpack.nvim' }
+
 ---@type string[]
 M.plugin_names_with_build = {}
 ---@type { [string]: boolean }
 M.unloaded_plugin_names = {}
+
+M.remove_plugin = function(plugin_name, src)
+  M.spec_registry[src] = nil
+  M.src_with_pending_build[src] = nil
+  M.src_to_pack_spec[src] = nil
+  M.lazy_parent_cache[src] = nil
+  M.resolve_main_not_found[src] = nil
+
+  M.dependency_graph[src] = nil
+  M.reverse_dependency_graph[src] = nil
+  for _, deps in pairs(M.dependency_graph) do
+    deps[src] = nil
+  end
+  for _, rdeps in pairs(M.reverse_dependency_graph) do
+    rdeps[src] = nil
+  end
+
+  M.registered_plugins = vim.tbl_filter(function(spec)
+    return spec.name ~= plugin_name
+  end, M.registered_plugins)
+
+  M.registered_plugin_names = vim.tbl_filter(function(name)
+    return name ~= plugin_name
+  end, M.registered_plugin_names)
+
+  M.plugin_names_with_build = vim.tbl_filter(function(name)
+    return name ~= plugin_name
+  end, M.plugin_names_with_build)
+
+  M.unloaded_plugin_names[plugin_name] = nil
+end
+
+M.clear_plugin_lists = function()
+  M.spec_registry = {}
+  M.src_with_pending_build = {}
+  M.registered_plugins = {}
+  M.registered_plugin_names = {}
+  M.plugin_names_with_build = {}
+  M.unloaded_plugin_names = {}
+  M.dependency_graph = {}
+  M.reverse_dependency_graph = {}
+  M.src_to_pack_spec = {}
+  M.lazy_parent_cache = {}
+  M.resolve_main_not_found = {}
+end
 
 return M
