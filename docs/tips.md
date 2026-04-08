@@ -1,0 +1,49 @@
+# Tips & Migration
+
+## Migrating from lazy.nvim
+
+Most of your lazy.nvim plugin specs will work as-is with zpack. However, zpack follows `vim.pack` conventions over lazy.nvim conventions, and is missing a few advanced features:
+- **version pinning**: lazy.nvim's `version` field maps to zpack's `sem_version`. See [Spec Reference](spec.md) and [version pinning examples](examples.md#version-pinning-for-lazynvim-compatibility)
+- **dev mode**: Use `src = vim.fn.expand('~/projects/my_plugin.nvim')` for local development
+- **profiling**: Use `nvim --startuptime startuptime.log`. Also refer to example [Neovim Profiler script](https://gist.github.com/zuqini/35993710f81983fbfa6baca67bdb32ed)
+
+## Compatibility Notes
+
+#### Snacks.nvim dashboard with zpack.nvim
+
+The default [Snacks.nvim](https://github.com/folke/snacks.nvim) dashboard configuration includes a startup time section that has a hard dependency on lazy.nvim. This will cause errors with any other plugin manager, not just zpack.
+
+To work around this, remove the startup section from your dashboard configuration:
+
+```lua
+require('snacks').setup({
+  dashboard = {
+    sections = {
+      { section = "header" },
+      { section = "keys", gap = 1, padding = 1 },
+      -- { section = "startup" }, -- Remove this line (depends on lazy.nvim)
+    },
+  }
+})
+```
+
+See [snacks.nvim#1778](https://github.com/folke/snacks.nvim/issues/1778) for more details.
+
+#### noice.nvim with vim.pack
+
+[noice.nvim](https://github.com/folke/noice.nvim) filters out `vim.pack` messages by default, which means you won't see install/update notifications from your plugin manager.
+
+To fix this, add a route that explicitly shows `vim.pack` messages:
+
+```lua
+require('noice').setup({
+  routes = {
+    {
+      filter = {
+        event = "msg_show",
+        find = "vim.pack",
+      },
+    },
+  },
+})
+```

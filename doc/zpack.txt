@@ -65,7 +65,7 @@ Under the default setting, create plugin specs in `lua/plugins/`:
         ...
 <
 
-Each file returns a spec or list of specs (see |zpack-examples| or
+Each file should return a spec or list of specs (see |zpack-examples| or
 |zpack-spec-reference|):
 >lua
     -- ./lua/plugins/fundo.lua
@@ -258,11 +258,9 @@ As a thin layer, zpack does not provide:
 - UI dashboard for your plugins (see |zpack-extensions|)
 - Advanced profiling, dev mode, change-detection, etc.
 
-If you're a lazy.nvim user, see |zpack-migrating-lazy|.
-
-Although you can achieve most of these through other means. See
-|zpack-migrating-lazy|. If something you need isn't achievable natively or
-through zpack, please submit an issue or PR!
+If you're a lazy.nvim user, see |zpack-migrating-lazy|. If something you
+need isn't achievable natively or through zpack, please submit an issue
+or PR!
 
 ==============================================================================
 6. EXAMPLES                                                   *zpack-examples*
@@ -839,7 +837,10 @@ nowait          (boolean, optional)
                 Whether to use nowait. Default: false.
 
 ==============================================================================
-11. MIGRATING FROM LAZY.NVIM                           *zpack-migrating-lazy*
+11. TIPS & MIGRATION                                *zpack-tips-and-migration*
+
+------------------------------------------------------------------------------
+11.1 MIGRATING FROM LAZY.NVIM                          *zpack-migrating-lazy*
 
 Most of your lazy.nvim plugin specs will work as-is with zpack. However,
 zpack follows `vim.pack` conventions over lazy.nvim conventions, and is
@@ -858,7 +859,7 @@ profiling                 Use `nvim --startuptime startuptime.log`.
                           Also see: https://gist.github.com/zuqini/35993710f81983fbfa6baca67bdb32ed
 
 ------------------------------------------------------------------------------
-SNACKS.NVIM DASHBOARD                              *zpack-migration-snacks*
+11.2 SNACKS.NVIM DASHBOARD                         *zpack-tip-snacks*
 
 The default Snacks.nvim dashboard configuration includes a startup time
 section that has a hard dependency on lazy.nvim. This will cause errors with
@@ -877,6 +878,26 @@ To work around this, remove the startup section from your dashboard config:
     })
 <
 See: https://github.com/folke/snacks.nvim/issues/1778
+
+------------------------------------------------------------------------------
+11.3 NOICE.NVIM WITH VIM.PACK                      *zpack-tip-noice*
+
+noice.nvim filters out `vim.pack` messages by default, which means you
+won't see install/update notifications from your plugin manager.
+
+To fix this, add a route that explicitly shows `vim.pack` messages:
+>lua
+    require('noice').setup({
+      routes = {
+        {
+          filter = {
+            event = "msg_show",
+            find = "vim.pack",
+          },
+        },
+      },
+    })
+<
 
 ==============================================================================
 12. EXTENSIONS                                           *zpack-extensions*
