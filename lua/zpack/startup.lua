@@ -74,6 +74,12 @@ M.process_all = function(ctx)
 
   for _, pack_spec in ipairs(sorted_packs) do
     vim.cmd.packadd({ pack_spec.name, bang = not ctx.load })
+    if ctx.load then
+      local entry = state.spec_registry[pack_spec.src]
+      if entry and entry.plugin and entry.plugin.path then
+        util.source_plugin_files(entry.plugin.path)
+      end
+    end
   end
 
   for _, pack_spec in ipairs(sorted_packs) do

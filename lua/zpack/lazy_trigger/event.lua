@@ -82,8 +82,9 @@ M.setup = function(pack_spec, spec, event)
     end
 
     if #other_events > 0 then
-      util.autocmd(other_events, function()
+      util.autocmd(other_events, function(ev)
         loader.process_spec(pack_spec)
+        vim.api.nvim_exec_autocmds(ev.event, { buffer = ev.buf, modeline = false })
       end, { group = state.lazy_group, once = true, pattern = normalized_event.pattern })
     end
   end

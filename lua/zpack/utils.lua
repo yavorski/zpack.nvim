@@ -258,4 +258,44 @@ M.resolve_main = function(plugin, spec)
   return nil
 end
 
+---Track which plugin paths have had their files sourced
+---@type { [string]: true }
+local sourced_plugin_paths = {}
+
+---Source plugin/ and after/plugin/ files for a plugin.
+---packadd may skip sourcing when vim.pack.add() already added the rtp entry.
+---@param plugin_path string
+M.source_plugin_files = function(plugin_path)
+  if sourced_plugin_paths[plugin_path] then
+    return
+  end
+  sourced_plugin_paths[plugin_path] = true
+
+  local dirs = {
+    plugin_path .. "/plugin",
+    plugin_path .. "/after/plugin",
+  }
+  for _, dir in ipairs(dirs) do
+    local handle = vim.uv.fs_scandir(dir)
+    if handle then
+      while true do
+        local fname = vim.uv.fs_scandir_next(handle)
+        if not fname then break end
+        if fname:sub(-4) == ".lua" or fname:sub(-4) == ".vim" then
+          local already_sourced = false
+          for _, s in ipairs(vim.fn.getscriptinfo()) do
+            if s.name == dir .. "/" .. fname then
+              already_sourced = true
+              break
+            end
+          end
+          if not already_sourced then
+            vim.cmd.source(dir .. "/" .. fname)
+          end
+        end
+      end
+    end
+  end
+end
+
 return M
