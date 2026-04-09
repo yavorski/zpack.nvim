@@ -77,7 +77,7 @@ M.process_all = function(ctx)
     if ctx.load then
       local entry = state.spec_registry[pack_spec.src]
       if entry and entry.plugin and entry.plugin.path then
-        util.source_plugin_files(entry.plugin.path)
+        util.source_after_plugin_files(entry.plugin.path)
       end
     end
   end

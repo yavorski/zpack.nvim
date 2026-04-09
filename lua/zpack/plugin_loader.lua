@@ -106,10 +106,9 @@ M.process_spec = function(pack_spec, opts)
   local name = plugin.spec.name
   vim.cmd.packadd({ name, bang = opts.bang })
 
-  -- packadd may skip sourcing plugin files when vim.pack.add() already
-  -- added the plugin to the rtp. Source them explicitly.
+  -- :packadd sources plugin/ but never after/plugin/. Source them explicitly.
   if not opts.bang and plugin.path then
-    utils.source_plugin_files(plugin.path)
+    utils.source_after_plugin_files(plugin.path)
   end
 
   local deps = state.dependency_graph[pack_spec.src]

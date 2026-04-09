@@ -6,15 +6,17 @@ Comprehensive test suite for zpack.nvim covering all major flows and lazy-loadin
 
 ### Run all tests
 
-From the project root directory:
+**Must be run from the project root directory** — `run_tests.lua` uses `getcwd()` to set up `package.path`, so running from a different directory will fail to find modules.
 
 ```bash
+cd /path/to/zpack.nvim
 nvim -u NONE --headless -S run_tests.lua
 ```
 
-Or from within Neovim after `cd` to project root:
+Or from within Neovim after `:cd` to the project root:
 
 ```vim
+:cd /path/to/zpack.nvim
 :source run_tests.lua
 ```
 
