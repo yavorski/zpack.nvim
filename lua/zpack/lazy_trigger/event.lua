@@ -1,6 +1,7 @@
 local util = require('zpack.utils')
 local state = require('zpack.state')
 local loader = require('zpack.plugin_loader')
+local refire = require('zpack.lazy_trigger.refire')
 
 local M = {}
 
@@ -83,8 +84,15 @@ M.setup = function(pack_spec, spec, event)
 
     if #other_events > 0 then
       util.autocmd(other_events, function(ev)
-        loader.process_spec(pack_spec)
-        vim.api.nvim_exec_autocmds(ev.event, { buffer = ev.buf, modeline = false })
+        local snap = refire.snapshot(ev.event)
+        local ok, err = pcall(loader.process_spec, pack_spec)
+        if not ok then
+          vim.schedule(function()
+            vim.notify(("Failed to load plugin: %s"):format(err), vim.log.levels.ERROR)
+          end)
+          return
+        end
+        refire.exec(ev.event, ev.buf, ev.data, snap)
       end, { group = state.lazy_group, once = true, pattern = normalized_event.pattern })
     end
   end
