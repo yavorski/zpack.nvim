@@ -242,6 +242,7 @@ function M.cleanup_test_env()
   package.loaded['zpack.plugin_loader'] = nil
   package.loaded['zpack.lazy_trigger.event'] = nil
   package.loaded['zpack.lazy_trigger.ft'] = nil
+  package.loaded['zpack.lazy_trigger.refire'] = nil
   package.loaded['zpack.lazy_trigger.cmd'] = nil
   package.loaded['zpack.lazy_trigger.keys'] = nil
   package.loaded['zpack.keymap'] = nil

@@ -1,6 +1,7 @@
 local util = require('zpack.utils')
 local state = require('zpack.state')
 local loader = require('zpack.plugin_loader')
+local refire = require('zpack.lazy_trigger.refire')
 
 local M = {}
 
@@ -10,18 +11,15 @@ M.setup = function(pack_spec, ft)
   local filetypes = util.normalize_string_list(ft)
 
   util.autocmd("FileType", function(ev)
-    loader.process_spec(pack_spec)
-
-    -- Re-trigger events for the buffer that triggered loading to ensure LSP/Treesitter attach
-    vim.schedule(function()
-      local bufnr = ev.buf
-      if not vim.api.nvim_buf_is_valid(bufnr) then
-        return
-      end
-      vim.api.nvim_exec_autocmds("BufReadPre", { buffer = bufnr, modeline = false })
-      vim.api.nvim_exec_autocmds("BufReadPost", { buffer = bufnr, modeline = false })
-      vim.api.nvim_exec_autocmds("FileType", { buffer = bufnr, modeline = false })
-    end)
+    local snap = refire.snapshot("FileType")
+    local ok, err = pcall(loader.process_spec, pack_spec)
+    if not ok then
+      vim.schedule(function()
+        vim.notify(("Failed to load plugin: %s"):format(err), vim.log.levels.ERROR)
+      end)
+      return
+    end
+    refire.exec("FileType", ev.buf, ev.data, snap)
   end, { group = state.lazy_group, pattern = filetypes, once = true })
 end
 
