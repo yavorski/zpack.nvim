@@ -63,7 +63,7 @@ local run_pack_update = function(plugin_name, update_opts, error_prefix)
 end
 
 local get_installed_or_notify = function(plugin_name)
-  local ok, result = pcall(vim.pack.get, { plugin_name })
+  local ok, result = pcall(vim.pack.get, { plugin_name }, { info = false })
   if not ok or not result or not result[1] then
     util.schedule_notify(('Plugin "%s" not installed'):format(plugin_name), vim.log.levels.ERROR)
     return nil
@@ -73,7 +73,7 @@ end
 
 M.clean_unused = function()
   local to_delete = {}
-  local installed = vim.pack.get() or {}
+  local installed = vim.pack.get(nil, { info = false }) or {}
 
   for _, pack in ipairs(installed) do
     local src = pack.spec.src

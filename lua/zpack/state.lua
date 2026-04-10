@@ -22,6 +22,9 @@ M.reverse_dependency_graph = {}
 ---@type { [string]: vim.pack.Spec }
 M.src_to_pack_spec = {}
 
+---@type { [string]: string }
+M.name_to_src = {}
+
 ---@type { [string]: boolean }
 M.lazy_parent_cache = {}
 
@@ -45,6 +48,7 @@ M.remove_plugin = function(plugin_name, src)
   M.spec_registry[src] = nil
   M.src_with_pending_build[src] = nil
   M.src_to_pack_spec[src] = nil
+  M.name_to_src[plugin_name] = nil
   M.lazy_parent_cache[src] = nil
   M.resolve_main_not_found[src] = nil
 
@@ -82,6 +86,7 @@ M.clear_plugin_lists = function()
   M.dependency_graph = {}
   M.reverse_dependency_graph = {}
   M.src_to_pack_spec = {}
+  M.name_to_src = {}
   M.lazy_parent_cache = {}
   M.resolve_main_not_found = {}
 end

@@ -59,6 +59,17 @@
 
 ---@alias zpack.LoadStatus "pending" | "loading" | "loaded"
 
+---@alias zpack.PluginStatus "pending" | "loading" | "loaded" | "disabled" | "installing"
+
+---Public snapshot of a registered plugin. Returned by |zpack.get_plugins()|
+---and |zpack.get_plugin()|. Consumers must treat instances as read-only.
+---@class zpack.PluginInfo
+---@field name string Resolved plugin name — the stable lookup key
+---@field src string Git URL or local path passed to `vim.pack.add`; safe to display or pass to `vim.pack.get`
+---@field status zpack.PluginStatus Current load/enablement state
+---@field lazy boolean Whether the plugin is configured to lazy-load
+---@field path? string Absolute plugin directory; nil while `status == "installing"`
+
 ---@class zpack.RegistryEntry
 ---@field specs zpack.Spec[]
 ---@field sorted_specs? zpack.Spec[]
@@ -67,5 +78,6 @@
 ---@field load_status zpack.LoadStatus
 ---@field enabled_result? boolean
 ---@field cond_result? boolean
+---@field is_lazy_resolved? boolean
 
 return {}

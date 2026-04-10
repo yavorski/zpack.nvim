@@ -87,3 +87,19 @@ The plugin data object passed to hooks and trigger functions:
   nowait = true|false,            -- Default: false
 }
 ```
+
+### zpack.PluginInfo Reference
+
+Snapshot of a registered plugin returned by the public API functions under `require('zpack.api')`. Treat as read-only. See `:help zpack-public-api` or [docs/public_api.md](public_api.md) for the full reference, including stability guarantees and field-level docs.
+
+```lua
+{
+  name   = string,                        -- resolved plugin name
+  src    = string,                        -- git URL or local path
+  status = "loaded"|"pending"             -- current load/enablement state
+         | "loading"|"disabled",
+  lazy   = boolean,                       -- configured to lazy-load?
+  path   = string,                        -- plugin directory on disk
+  rev    = string?,                       -- installed git revision
+}
+```
