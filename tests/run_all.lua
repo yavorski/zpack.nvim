@@ -30,6 +30,7 @@ local test_modules = {
   'zrestore_test',
   'is_single_spec_test',
   'source_plugin_files_test',
+  'public_api_test',
 }
 
 print("\n" .. string.rep("=", 60))

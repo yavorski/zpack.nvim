@@ -1,5 +1,7 @@
 ---@module 'zpack'
 
+local api = require('zpack.api')
+
 local M = {}
 
 ---@class zpack.ProcessContext
@@ -159,5 +161,22 @@ end
 M.add = function()
   require('zpack.deprecation').notify_removed('add')
 end
+
+---Public API contract version. Alias for |zpack.api.VERSION|.
+---@type integer
+M.VERSION = api.VERSION
+
+---Return a snapshot of every plugin zpack knows about. Plugins disabled by
+---`enabled = false` are pruned during setup and will not appear. See
+---|zpack.PluginInfo| for the returned shape. Alias for |zpack.api.get_plugins|.
+---@return zpack.PluginInfo[]
+M.get_plugins = api.get_plugins
+
+---Look up a single plugin by its resolved name. Returns nil when no plugin
+---with that name is registered; never throws. Alias for
+---|zpack.api.get_plugin|.
+---@param name string
+---@return zpack.PluginInfo?
+M.get_plugin = api.get_plugin
 
 return M

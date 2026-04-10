@@ -301,8 +301,8 @@ end
 ---Propagate enabled=false backward through reverse_dependency_graph.
 ---A plugin whose required dependency is disabled cannot function, so it is
 ---disabled too. Emits one warning per propagation step so the user learns
----which dep caused the cascade. Runs before prune_disabled_subtrees so the
----pruner picks up the newly-disabled parents.
+---which dep caused the cascade. Runs before prune_disabled so the pruner
+---picks up the newly-disabled parents.
 local function propagate_enabled_disable(state, utils)
   local worklist = {}
   for src, entry in pairs(state.spec_registry) do
@@ -330,7 +330,11 @@ local function propagate_enabled_disable(state, utils)
   end
 end
 
-local function prune_disabled_subtrees(state)
+---Remove every enabled=false entry from the registry, plus any dep-only
+---plugins that become orphaned as a side effect. After this runs, every
+---remaining entry is guaranteed to reach vim.pack.add, which means the
+---public API can rely on entry.plugin being populated by the load callback.
+local function prune_disabled(state)
   local worklist = {}
   for src, entry in pairs(state.spec_registry) do
     if entry.enabled_result == false then
@@ -341,10 +345,10 @@ local function prune_disabled_subtrees(state)
   while #worklist > 0 do
     local src = table.remove(worklist)
     local orphaned = strip_outgoing_edges(state, src)
+    state.spec_registry[src] = nil
     for _, dep_src in ipairs(orphaned) do
       local dep_entry = state.spec_registry[dep_src]
       if dep_entry and entry_is_dep_only(dep_entry) then
-        state.spec_registry[dep_src] = nil
         table.insert(worklist, dep_src)
       end
     end
@@ -357,6 +361,7 @@ end
 function M.resolve_all()
   local state = require('zpack.state')
   local utils = require('zpack.utils')
+  local lazy = require('zpack.lazy')
 
   for _, entry in pairs(state.spec_registry) do
     if entry.specs and #entry.specs > 0 then
@@ -372,11 +377,39 @@ function M.resolve_all()
   end
 
   propagate_enabled_disable(state, utils)
-  prune_disabled_subtrees(state)
+  prune_disabled(state)
+
+  -- Pre-compute is_lazy_resolved and name_to_src from merged_spec alone so the
+  -- public API can report a stable `lazy` flag and resolve `get_plugin(name)`
+  -- for entries still mid-install (whose vim.pack.add load callback has not
+  -- fired yet). The registration load callback re-computes is_lazy_resolved
+  -- with the live plugin arg for accuracy with function-form triggers — both
+  -- calls flow through lazy.is_lazy so the answers stay consistent.
+  -- derive_name_from_src must match vim.pack.add's own derivation rule so
+  -- this pre-seed agrees with the registration callback's rewrite. If they
+  -- ever diverge, a stale derived-name key survives in name_to_src — harmless
+  -- (bounded, non-crashing, cleared on re-setup), but worth knowing.
+  for src, entry in pairs(state.spec_registry) do
+    if entry.merged_spec then
+      entry.is_lazy_resolved = lazy.is_lazy(entry.merged_spec, nil, src)
+      local name = entry.merged_spec.name or utils.derive_name_from_src(src)
+      state.name_to_src[name] = src
+    end
+  end
+  -- Drop the pre-load lazy-parent cache so the registration callback
+  -- recomputes has_lazy_parent with populated `parent_entry.plugin`.
+  state.lazy_parent_cache = {}
 
   local vim_packs = {}
   for src, entry in pairs(state.spec_registry) do
-    if entry.merged_spec and entry.enabled_result then
+    if not entry.merged_spec then
+      utils.schedule_notify(
+        ("zpack: skipping %s — no merged_spec (empty specs list?)"):format(src),
+        vim.log.levels.WARN
+      )
+      state.spec_registry[src] = nil
+    else
+      assert(entry.enabled_result ~= false, ("internal: registry entry for %s survived prune_disabled with enabled_result=false"):format(src))
       local pack_spec = {
         src = src,
         version = utils.normalize_version(entry.merged_spec),

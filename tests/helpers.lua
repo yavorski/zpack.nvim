@@ -149,25 +149,26 @@ function M.setup_test_env()
 
   _G.test_state.original_vim_pack_get = vim.pack.get
   _G.test_state.registered_pack_specs = {}
-  vim.pack.get = function(names)
+  _G.test_state.pack_revs = {}
+  vim.pack.get = function(names, _opts)
+    local function make_entry(name, pack_spec)
+      return {
+        spec = pack_spec,
+        path = vim.fn.stdpath('data') .. '/site/pack/zpack/opt/' .. name,
+        name = name,
+        rev = _G.test_state.pack_revs[name] or ('mock-rev-' .. name),
+      }
+    end
     local results = {}
     if names == nil or #names == 0 then
       for name, pack_spec in pairs(_G.test_state.registered_pack_specs) do
-        table.insert(results, {
-          spec = pack_spec,
-          path = vim.fn.stdpath('data') .. '/site/pack/zpack/opt/' .. name,
-          name = name,
-        })
+        table.insert(results, make_entry(name, pack_spec))
       end
     else
       for _, name in ipairs(names) do
         local pack_spec = _G.test_state.registered_pack_specs[name]
         if pack_spec then
-          table.insert(results, {
-            spec = pack_spec,
-            path = vim.fn.stdpath('data') .. '/site/pack/zpack/opt/' .. name,
-            name = name,
-          })
+          table.insert(results, make_entry(name, pack_spec))
         end
       end
     end
@@ -251,6 +252,7 @@ function M.cleanup_test_env()
   package.loaded['zpack.deprecation'] = nil
   package.loaded['zpack.merge'] = nil
   package.loaded['zpack.module_loader'] = nil
+  package.loaded['zpack.api'] = nil
 
   -- Remove our module loader from package.loaders if present
   for i = #package.loaders, 1, -1 do

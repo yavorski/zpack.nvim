@@ -797,16 +797,13 @@ return function()
 
       helpers.flush_pending()
 
-      local dep_entry = state.spec_registry['https://github.com/test/dep']
-      helpers.assert_not_nil(dep_entry, "dep registry entry should still exist")
-      helpers.assert_equal(dep_entry.enabled_result, false, "dep enabled_result should be false")
-
-      local parent_entry = state.spec_registry['https://github.com/test/parent']
-      helpers.assert_not_nil(parent_entry, "parent registry entry should still exist")
-      helpers.assert_equal(
-        parent_entry.enabled_result,
-        false,
-        "parent should be disabled because its required dep is disabled"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/dep'],
+        "disabled dep should be pruned from spec_registry"
+      )
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/parent'],
+        "parent should be pruned after propagation (required dep is disabled)"
       )
 
       helpers.assert_nil(_G.test_state.dep_config_ran, "config should NOT have run")
@@ -878,10 +875,10 @@ return function()
 
       helpers.flush_pending()
 
-      local src = 'https://github.com/test/shared'
-      local entry = state.spec_registry[src]
-      helpers.assert_not_nil(entry, "registry entry should still exist")
-      helpers.assert_equal(entry.enabled_result, false, "merged enabled_result should be false")
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/shared'],
+        "plugin with any fragment disabling it should be pruned"
+      )
       helpers.assert_false(
         vim.tbl_contains(state.registered_plugin_names, 'shared'),
         "disabled plugin should not be in registered_plugin_names"
@@ -915,12 +912,9 @@ return function()
 
       helpers.flush_pending()
 
-      local entry = state.spec_registry['https://github.com/test/shared']
-      helpers.assert_not_nil(entry, "registry entry should still exist")
-      helpers.assert_equal(
-        entry.enabled_result,
-        false,
-        "merged function AND_LOGIC should yield false when either fn returns false"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/shared'],
+        "merged function AND_LOGIC yielding false should prune the plugin"
       )
       helpers.assert_nil(
         _G.test_state.registered_pack_specs['shared'],
@@ -1415,20 +1409,17 @@ return function()
 
       helpers.flush_pending()
 
-      helpers.assert_equal(
-        state.spec_registry['https://github.com/test/prop-leaf'].enabled_result,
-        false,
-        "leaf should be directly disabled"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/prop-leaf'],
+        "leaf should be pruned"
       )
-      helpers.assert_equal(
-        state.spec_registry['https://github.com/test/prop-mid'].enabled_result,
-        false,
-        "mid should be propagation-disabled (depends on leaf)"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/prop-mid'],
+        "mid should be pruned (propagation-disabled, depends on leaf)"
       )
-      helpers.assert_equal(
-        state.spec_registry['https://github.com/test/prop-grand'].enabled_result,
-        false,
-        "grand should be propagation-disabled (depends transitively on leaf)"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/prop-grand'],
+        "grand should be pruned (propagation-disabled, depends transitively on leaf)"
       )
 
       for _, name in ipairs({ 'prop-grand', 'prop-mid', 'prop-leaf' }) do
@@ -1474,15 +1465,13 @@ return function()
 
       helpers.flush_pending()
 
-      helpers.assert_equal(
-        state.spec_registry['https://github.com/test/shared-dep-a'].enabled_result,
-        false,
-        "dep-a should be propagation-disabled"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/shared-dep-a'],
+        "dep-a should be pruned (propagation-disabled)"
       )
-      helpers.assert_equal(
-        state.spec_registry['https://github.com/test/shared-dep-b'].enabled_result,
-        false,
-        "dep-b should be propagation-disabled"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/shared-dep-b'],
+        "dep-b should be pruned (propagation-disabled)"
       )
       helpers.assert_nil(
         _G.test_state.registered_pack_specs['shared-dep-a'],
@@ -1516,10 +1505,9 @@ return function()
 
       helpers.flush_pending()
 
-      helpers.assert_equal(
-        state.spec_registry['https://github.com/test/multi-dep-parent'].enabled_result,
-        false,
-        "parent with one disabled required dep should be disabled"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/multi-dep-parent'],
+        "parent with one disabled required dep should be pruned"
       )
       helpers.assert_nil(
         _G.test_state.registered_pack_specs['multi-dep-parent'],
@@ -1553,10 +1541,9 @@ return function()
 
       helpers.flush_pending()
 
-      helpers.assert_equal(
-        state.spec_registry['https://github.com/test/fn-prop-parent'].enabled_result,
-        false,
-        "parent should be propagation-disabled when dep's enabled function returns false"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/fn-prop-parent'],
+        "parent should be pruned when dep's enabled function returns false"
       )
       helpers.assert_nil(
         _G.test_state.registered_pack_specs['fn-prop-parent'],

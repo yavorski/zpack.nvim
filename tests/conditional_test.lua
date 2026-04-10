@@ -2,7 +2,7 @@ local helpers = require('helpers')
 
 return function()
   helpers.describe("Conditional Loading", function()
-    helpers.test("enabled=false prevents plugin registration", function()
+    helpers.test("enabled=false prunes plugin from registry", function()
       helpers.setup_test_env()
       local state = require('zpack.state')
 
@@ -18,9 +18,7 @@ return function()
 
       helpers.flush_pending()
       local src = 'https://github.com/test/plugin'
-      local entry = state.spec_registry[src]
-      helpers.assert_not_nil(entry, "Registry entry should still exist when enabled=false")
-      helpers.assert_equal(entry.enabled_result, false, "enabled_result should be false")
+      helpers.assert_nil(state.spec_registry[src], "enabled=false plugin should be pruned from spec_registry")
       helpers.assert_false(
         vim.tbl_contains(state.registered_plugin_names, 'plugin'),
         "Plugin should not be in registered_plugin_names when enabled=false"
@@ -54,7 +52,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("enabled function returning false prevents registration", function()
+    helpers.test("enabled function returning false prunes plugin from registry", function()
       helpers.setup_test_env()
       local state = require('zpack.state')
 
@@ -70,9 +68,7 @@ return function()
 
       helpers.flush_pending()
       local src = 'https://github.com/test/plugin'
-      local entry = state.spec_registry[src]
-      helpers.assert_not_nil(entry, "Registry entry should still exist when enabled function returns false")
-      helpers.assert_equal(entry.enabled_result, false, "enabled_result should be false")
+      helpers.assert_nil(state.spec_registry[src], "enabled fn returning false should prune from spec_registry")
       helpers.assert_false(
         vim.tbl_contains(state.registered_plugin_names, 'plugin'),
         "Plugin should not be in registered_plugin_names"
@@ -85,7 +81,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("enabled function returning nil counts as disabled", function()
+    helpers.test("enabled function returning nil counts as disabled and prunes", function()
       helpers.setup_test_env()
       local state = require('zpack.state')
 
@@ -100,12 +96,9 @@ return function()
       })
 
       helpers.flush_pending()
-      local entry = state.spec_registry['https://github.com/test/plugin']
-      helpers.assert_not_nil(entry, "entry should still exist")
-      helpers.assert_equal(
-        entry.enabled_result,
-        false,
-        "enabled function returning nil should be treated as disabled"
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/plugin'],
+        "enabled fn returning nil should be treated as disabled and pruned"
       )
       helpers.assert_nil(
         _G.test_state.registered_pack_specs['plugin'],

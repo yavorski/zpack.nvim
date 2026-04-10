@@ -160,6 +160,10 @@ See **[Spec Reference](docs/spec.md)** for the full spec definition, including `
 
 See **[Tips & Migration](docs/tips.md)** for lazy.nvim migration guide and compatibility notes for popular plugins (Snacks.nvim dashboard, noice.nvim, etc.).
 
+## Public API
+
+See **[Public API](docs/public_api.md)** for the supported introspection surface used by third-party tooling like dashboards and status UIs. Also available as `:help zpack-public-api`.
+
 ## Extensions
 
 - [zshow.nvim](https://github.com/sairyy/zshow.nvim) — A floating window UI for viewing installed plugins, grouped by load status.
