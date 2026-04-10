@@ -20,7 +20,8 @@ M.register_all = function(ctx)
       registry_entry.plugin = plugin
       state.src_to_pack_spec[pack_spec.src] = pack_spec
 
-      if not utils.check_cond(spec, plugin, ctx.defaults.cond) then
+      registry_entry.cond_result = utils.check_cond(spec, plugin, ctx.defaults.cond)
+      if not registry_entry.cond_result then
         return
       end
 

@@ -65,5 +65,7 @@
 ---@field merged_spec? zpack.Spec
 ---@field plugin zpack.Plugin?
 ---@field load_status zpack.LoadStatus
+---@field enabled_result? boolean
+---@field cond_result? boolean
 
 return {}

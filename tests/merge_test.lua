@@ -293,6 +293,62 @@ return function()
       helpers.cleanup_test_env()
     end)
 
+    helpers.test("merge_and for enabled: function returning false composes to false", function()
+      helpers.setup_test_env()
+      local merge = require('zpack.merge')
+      local utils = require('zpack.utils')
+
+      local base = { enabled = function() return false end }
+      local incoming = { enabled = true }
+      local result = merge.merge_specs(base, incoming)
+
+      helpers.assert_equal(type(result.enabled), "function", "merged enabled should be callable")
+      helpers.assert_false(
+        utils.check_enabled(result),
+        "enabled fn returning false must propagate through merge, not collapse via ternary"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("merge_and for cond: function returning false composes to false", function()
+      helpers.setup_test_env()
+      local merge = require('zpack.merge')
+      local utils = require('zpack.utils')
+
+      local base = { cond = function() return false end }
+      local incoming = { cond = true }
+      local result = merge.merge_specs(base, incoming)
+
+      helpers.assert_equal(type(result.cond), "function", "merged cond should be callable")
+      helpers.assert_false(
+        utils.check_cond(result, {}),
+        "cond fn returning false must propagate through merge, not collapse via ternary"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("merge_and_enabled: merged function is called with no arguments", function()
+      helpers.setup_test_env()
+      local merge = require('zpack.merge')
+      local utils = require('zpack.utils')
+
+      local received_arg
+      local base = { enabled = function(...) received_arg = select('#', ...); return true end }
+      local incoming = { enabled = function() return true end }
+      local result = merge.merge_specs(base, incoming)
+      utils.check_enabled(result)
+
+      helpers.assert_equal(
+        received_arg,
+        0,
+        "enabled functions must receive zero arguments when composed via merge"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
     helpers.test("sort_specs puts dependencies before standalone", function()
       helpers.setup_test_env()
       local merge = require('zpack.merge')

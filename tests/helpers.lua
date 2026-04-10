@@ -278,10 +278,10 @@ function M.wait_for_condition(condition, timeout_ms, interval_ms)
 
   local start = vim.loop.now()
   while vim.loop.now() - start < timeout_ms do
+    vim.wait(interval_ms)
     if condition() then
       return true
     end
-    vim.wait(interval_ms)
   end
   return false
 end

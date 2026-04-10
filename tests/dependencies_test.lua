@@ -710,5 +710,961 @@ return function()
 
       helpers.cleanup_test_env()
     end)
+
+    local function has_warning_matching(fragments)
+      for _, notif in ipairs(_G.test_state.notifications) do
+        if notif.level == vim.log.levels.WARN then
+          local all_match = true
+          for _, frag in ipairs(fragments) do
+            if not notif.msg:find(frag, 1, true) then
+              all_match = false
+              break
+            end
+          end
+          if all_match then
+            return true
+          end
+        end
+      end
+      return false
+    end
+
+    helpers.test("cond=false on a dep still runs user config and warns", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+      _G.test_state.dep_config_ran = nil
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/parent',
+            dependencies = { 'test/dep' },
+          },
+          {
+            'test/dep',
+            cond = false,
+            opts = { foo = 1 },
+            config = function(_, opts)
+              _G.test_state.dep_config_ran = opts
+            end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.wait_for_condition(function()
+        return _G.test_state.dep_config_ran ~= nil
+      end, 200)
+
+      local dep_entry = state.spec_registry['https://github.com/test/dep']
+      helpers.assert_not_nil(dep_entry, "dep registry entry should exist")
+      helpers.assert_equal(dep_entry.cond_result, false, "dep cond_result should be false")
+
+      helpers.assert_not_nil(_G.test_state.dep_config_ran, "config should have run via dep chain")
+      helpers.assert_equal(_G.test_state.dep_config_ran.foo, 1, "user opts should have been passed")
+
+      helpers.assert_true(
+        has_warning_matching({ 'test/dep', 'test/parent', 'cond=false' }),
+        "expected a cond=false override warning mentioning test/dep and test/parent"
+      )
+
+      _G.test_state.dep_config_ran = nil
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled=false on a dep does not run user config and propagates to disable parent", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+      _G.test_state.dep_config_ran = nil
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/parent',
+            dependencies = { 'test/dep' },
+          },
+          {
+            'test/dep',
+            enabled = false,
+            opts = { foo = 1 },
+            config = function(_, opts)
+              _G.test_state.dep_config_ran = opts
+            end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      local dep_entry = state.spec_registry['https://github.com/test/dep']
+      helpers.assert_not_nil(dep_entry, "dep registry entry should still exist")
+      helpers.assert_equal(dep_entry.enabled_result, false, "dep enabled_result should be false")
+
+      local parent_entry = state.spec_registry['https://github.com/test/parent']
+      helpers.assert_not_nil(parent_entry, "parent registry entry should still exist")
+      helpers.assert_equal(
+        parent_entry.enabled_result,
+        false,
+        "parent should be disabled because its required dep is disabled"
+      )
+
+      helpers.assert_nil(_G.test_state.dep_config_ran, "config should NOT have run")
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['dep'],
+        "disabled dep should not be passed to vim.pack.add"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['parent'],
+        "propagation-disabled parent should not reach vim.pack.add"
+      )
+
+      helpers.assert_true(
+        has_warning_matching({ 'test/parent', 'test/dep', 'enabled=false' }),
+        "expected a propagation warning naming the parent, dep, and enabled=false"
+      )
+
+      _G.test_state.dep_config_ran = nil
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("cond=false standalone runs no config and emits no dep warning", function()
+      helpers.setup_test_env()
+      _G.test_state.dep_config_ran = nil
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/solo',
+            cond = false,
+            opts = { foo = 1 },
+            config = function(_, opts)
+              _G.test_state.dep_config_ran = opts
+            end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_nil(_G.test_state.dep_config_ran, "standalone cond=false should not run config")
+      helpers.assert_false(
+        has_warning_matching({ 'cond=false' }),
+        "unexpected cond=false override warning for standalone plugin"
+      )
+
+      _G.test_state.dep_config_ran = nil
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled AND_LOGIC: one spec false disables the merged plugin", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/shared',
+            enabled = false,
+          },
+          {
+            'test/shared',
+            opts = { foo = 1 },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      local src = 'https://github.com/test/shared'
+      local entry = state.spec_registry[src]
+      helpers.assert_not_nil(entry, "registry entry should still exist")
+      helpers.assert_equal(entry.enabled_result, false, "merged enabled_result should be false")
+      helpers.assert_false(
+        vim.tbl_contains(state.registered_plugin_names, 'shared'),
+        "disabled plugin should not be in registered_plugin_names"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['shared'],
+        "disabled plugin should not be passed to vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled AND_LOGIC with two functions: one false disables plugin", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/shared',
+            enabled = function() return true end,
+          },
+          {
+            'test/shared',
+            enabled = function() return false end,
+            opts = { foo = 1 },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      local entry = state.spec_registry['https://github.com/test/shared']
+      helpers.assert_not_nil(entry, "registry entry should still exist")
+      helpers.assert_equal(
+        entry.enabled_result,
+        false,
+        "merged function AND_LOGIC should yield false when either fn returns false"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['shared'],
+        "function-disabled plugin should not be passed to vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled=false on a parent prunes its exclusive dep subtree", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/disabled-parent',
+            enabled = false,
+            dependencies = { 'test/exclusive-dep' },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/exclusive-dep'],
+        "exclusive dep of a disabled parent should not be registered"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['exclusive-dep'],
+        "exclusive dep should not reach vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled=function(false) on a parent prunes its exclusive dep subtree", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/fn-disabled-parent',
+            enabled = function() return false end,
+            dependencies = { 'test/fn-exclusive-dep' },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/fn-exclusive-dep'],
+        "exclusive dep of a function-disabled parent should not be registered"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("shared dep survives when one of its parents is enabled=false", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/dead-parent',
+            enabled = false,
+            dependencies = { 'test/shared-dep' },
+          },
+          {
+            'test/live-parent',
+            dependencies = { 'test/shared-dep' },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_not_nil(
+        state.spec_registry['https://github.com/test/shared-dep'],
+        "shared dep should still be registered via the live parent"
+      )
+      helpers.assert_not_nil(
+        _G.test_state.registered_pack_specs['shared-dep'],
+        "shared dep should reach vim.pack.add via the live parent"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['dead-parent'],
+        "dead parent should not reach vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("multi-fragment: enabled=false in one fragment prunes dep from another fragment", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          { 'test/leaky-parent', enabled = false },
+          { 'test/leaky-parent', dependencies = { 'test/leaky-dep' } },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/leaky-dep'],
+        "dep registered via a fragment whose merged enabled=false must be pruned post-merge"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['leaky-dep'],
+        "orphaned dep should not reach vim.pack.add"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['leaky-parent'],
+        "disabled parent should not reach vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled=false on a parent transitively prunes an exclusive dep chain", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/chain-a',
+            enabled = false,
+            dependencies = {
+              { 'test/chain-b', dependencies = { 'test/chain-c' } },
+            },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/chain-b'],
+        "exclusive dep B should be pruned"
+      )
+      helpers.assert_nil(
+        state.spec_registry['https://github.com/test/chain-c'],
+        "transitive exclusive dep C should be pruned"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['chain-b'],
+        "B should not reach vim.pack.add"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['chain-c'],
+        "C should not reach vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("nested A->B->C: middle plugin cond=false still loads its own deps", function()
+      helpers.setup_test_env()
+      _G.test_state.b_config_ran = nil
+      _G.test_state.c_config_ran = nil
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/n-a',
+            dependencies = { 'test/n-b' },
+          },
+          {
+            'test/n-b',
+            cond = false,
+            dependencies = { 'test/n-c' },
+            opts = { b = true },
+            config = function(_, opts)
+              _G.test_state.b_config_ran = opts
+            end,
+          },
+          {
+            'test/n-c',
+            opts = { c = true },
+            config = function(_, opts)
+              _G.test_state.c_config_ran = opts
+            end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.wait_for_condition(function()
+        return _G.test_state.b_config_ran ~= nil and _G.test_state.c_config_ran ~= nil
+      end, 200)
+
+      helpers.assert_not_nil(
+        _G.test_state.b_config_ran,
+        "cond=false middle dep still runs config when pulled via dep chain"
+      )
+      helpers.assert_not_nil(
+        _G.test_state.c_config_ran,
+        "transitive dep C should load via B"
+      )
+      helpers.assert_true(
+        has_warning_matching({ 'test/n-b', 'test/n-a', 'cond=false' }),
+        "expected cond=false override warning naming B and its parent A"
+      )
+
+      _G.test_state.b_config_ran = nil
+      _G.test_state.c_config_ran = nil
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("cond function on a dep receives the live plugin", function()
+      helpers.setup_test_env()
+      _G.test_state.cond_plugin_arg = nil
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/cond-fn-parent',
+            dependencies = { 'test/cond-fn-dep' },
+          },
+          {
+            'test/cond-fn-dep',
+            cond = function(plugin)
+              _G.test_state.cond_plugin_arg = plugin
+              return true
+            end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_not_nil(
+        _G.test_state.cond_plugin_arg,
+        "cond function on a dep should receive the plugin arg at register time"
+      )
+      helpers.assert_not_nil(
+        _G.test_state.cond_plugin_arg.spec,
+        "plugin arg should carry spec"
+      )
+
+      _G.test_state.cond_plugin_arg = nil
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("lazy parent with cond=false dep: dep loads and warns at trigger time", function()
+      helpers.setup_test_env()
+      _G.test_state.lazy_dep_config_ran = nil
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/lazy-cond-parent',
+            event = 'User ZpackTestTrigger',
+            dependencies = { 'test/lazy-cond-dep' },
+          },
+          {
+            'test/lazy-cond-dep',
+            cond = false,
+            opts = { trig = true },
+            config = function(_, opts)
+              _G.test_state.lazy_dep_config_ran = opts
+            end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+      helpers.assert_nil(
+        _G.test_state.lazy_dep_config_ran,
+        "dep should not load before lazy parent triggers"
+      )
+
+      vim.api.nvim_exec_autocmds('User', { pattern = 'ZpackTestTrigger' })
+      helpers.flush_pending()
+
+      helpers.assert_not_nil(
+        _G.test_state.lazy_dep_config_ran,
+        "dep should load when lazy parent triggers"
+      )
+      helpers.assert_true(
+        has_warning_matching({ 'test/lazy-cond-dep', 'test/lazy-cond-parent', 'cond=false' }),
+        "expected cond=false warning when lazy parent triggers"
+      )
+
+      _G.test_state.lazy_dep_config_ran = nil
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("cross-file import: cond=false dep pulled in as dep of another file still runs with warning", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+      _G.test_state.imported_dep_config_ran = nil
+
+      local utils = require('zpack.utils')
+      local original_lsdir = utils.lsdir
+      local original_stdpath = vim.fn.stdpath
+      vim.fn.stdpath = function() return '/mock/config' end
+      utils.lsdir = function(path)
+        if path == '/mock/config/lua/zpack_test_import_cond' then
+          return {
+            { name = 'dep_with_cond.lua', type = 'file' },
+            { name = 'parent_using_dep.lua', type = 'file' },
+          }
+        end
+        return {}
+      end
+
+      package.loaded['zpack_test_import_cond.dep_with_cond'] = {
+        {
+          'test/imported-dep',
+          cond = false,
+          opts = { from_user = true },
+          config = function(_, opts)
+            _G.test_state.imported_dep_config_ran = opts
+          end,
+        },
+      }
+      package.loaded['zpack_test_import_cond.parent_using_dep'] = {
+        { 'test/imported-parent', dependencies = { 'test/imported-dep' } },
+      }
+
+      require('zpack').setup({
+        spec = { { import = 'zpack_test_import_cond' } },
+        defaults = { confirm = false },
+      })
+
+      helpers.wait_for_condition(function()
+        return _G.test_state.imported_dep_config_ran ~= nil
+      end, 200)
+
+      helpers.assert_not_nil(
+        _G.test_state.imported_dep_config_ran,
+        "imported dep's user config should run via dep chain"
+      )
+      helpers.assert_equal(
+        _G.test_state.imported_dep_config_ran.from_user,
+        true,
+        "user-supplied opts should flow through"
+      )
+      local dep_entry = state.spec_registry['https://github.com/test/imported-dep']
+      helpers.assert_equal(dep_entry.cond_result, false, "cond_result should be false")
+      helpers.assert_true(
+        has_warning_matching({ 'test/imported-dep', 'test/imported-parent', 'cond=false' }),
+        "expected cond=false warning across imports"
+      )
+
+      utils.lsdir = original_lsdir
+      vim.fn.stdpath = original_stdpath
+      package.loaded['zpack_test_import_cond.dep_with_cond'] = nil
+      package.loaded['zpack_test_import_cond.parent_using_dep'] = nil
+      _G.test_state.imported_dep_config_ran = nil
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("cross-file import: enabled=false dep pulled in as dep of another file skips user config", function()
+      helpers.setup_test_env()
+      _G.test_state.imported_dep_config_ran = nil
+
+      local utils = require('zpack.utils')
+      local original_lsdir = utils.lsdir
+      local original_stdpath = vim.fn.stdpath
+      vim.fn.stdpath = function() return '/mock/config' end
+      utils.lsdir = function(path)
+        if path == '/mock/config/lua/zpack_test_import_en' then
+          return {
+            { name = 'dep_with_enabled.lua', type = 'file' },
+            { name = 'parent_using_dep.lua', type = 'file' },
+          }
+        end
+        return {}
+      end
+
+      package.loaded['zpack_test_import_en.dep_with_enabled'] = {
+        {
+          'test/en-dep',
+          enabled = false,
+          opts = { from_user = true },
+          config = function(_, opts)
+            _G.test_state.imported_dep_config_ran = opts
+          end,
+        },
+      }
+      package.loaded['zpack_test_import_en.parent_using_dep'] = {
+        { 'test/en-parent', dependencies = { 'test/en-dep' } },
+      }
+
+      require('zpack').setup({
+        spec = { { import = 'zpack_test_import_en' } },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_nil(
+        _G.test_state.imported_dep_config_ran,
+        "enabled=false dep should NOT run user config even when pulled via import+dep"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['en-dep'],
+        "enabled=false dep should not reach vim.pack.add"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['en-parent'],
+        "parent should be propagation-disabled when its required dep is enabled=false"
+      )
+      helpers.assert_true(
+        has_warning_matching({ 'test/en-parent', 'test/en-dep', 'enabled=false' }),
+        "expected propagation warning naming parent, dep, and enabled=false"
+      )
+
+      utils.lsdir = original_lsdir
+      vim.fn.stdpath = original_stdpath
+      package.loaded['zpack_test_import_en.dep_with_enabled'] = nil
+      package.loaded['zpack_test_import_en.parent_using_dep'] = nil
+      _G.test_state.imported_dep_config_ran = nil
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("diamond dep with one cond=false path still loads shared dep", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/live-diamond-parent',
+            dependencies = { 'test/diamond-dep' },
+          },
+          {
+            'test/cond-diamond-parent',
+            cond = false,
+            dependencies = { 'test/diamond-dep' },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_not_nil(
+        state.spec_registry['https://github.com/test/diamond-dep'],
+        "diamond dep should be registered"
+      )
+      helpers.assert_not_nil(
+        _G.test_state.registered_pack_specs['diamond-dep'],
+        "diamond dep should reach vim.pack.add"
+      )
+      helpers.assert_not_nil(
+        _G.test_state.registered_pack_specs['live-diamond-parent'],
+        "live diamond parent should load"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled=false on a dep transitively disables a grandparent chain", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/prop-grand',
+            dependencies = { 'test/prop-mid' },
+          },
+          {
+            'test/prop-mid',
+            dependencies = { 'test/prop-leaf' },
+          },
+          {
+            'test/prop-leaf',
+            enabled = false,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/prop-leaf'].enabled_result,
+        false,
+        "leaf should be directly disabled"
+      )
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/prop-mid'].enabled_result,
+        false,
+        "mid should be propagation-disabled (depends on leaf)"
+      )
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/prop-grand'].enabled_result,
+        false,
+        "grand should be propagation-disabled (depends transitively on leaf)"
+      )
+
+      for _, name in ipairs({ 'prop-grand', 'prop-mid', 'prop-leaf' }) do
+        helpers.assert_nil(
+          _G.test_state.registered_pack_specs[name],
+          name .. " should not reach vim.pack.add"
+        )
+      end
+
+      helpers.assert_true(
+        has_warning_matching({ 'test/prop-mid', 'test/prop-leaf', 'enabled=false' }),
+        "expected propagation warning: mid disabled because leaf has enabled=false"
+      )
+      helpers.assert_true(
+        has_warning_matching({ 'test/prop-grand', 'test/prop-mid', 'enabled=false' }),
+        "expected propagation warning: grand disabled because mid has enabled=false"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled=false on a shared dep disables all dependents", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/shared-dep-a',
+            dependencies = { 'test/shared-disabled' },
+          },
+          {
+            'test/shared-dep-b',
+            dependencies = { 'test/shared-disabled' },
+          },
+          {
+            'test/shared-disabled',
+            enabled = false,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/shared-dep-a'].enabled_result,
+        false,
+        "dep-a should be propagation-disabled"
+      )
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/shared-dep-b'].enabled_result,
+        false,
+        "dep-b should be propagation-disabled"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['shared-dep-a'],
+        "dep-a should not reach vim.pack.add"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['shared-dep-b'],
+        "dep-b should not reach vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled=false propagates even when the parent has other healthy deps", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/multi-dep-parent',
+            dependencies = { 'test/healthy-dep', 'test/sick-dep' },
+          },
+          {
+            'test/sick-dep',
+            enabled = false,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/multi-dep-parent'].enabled_result,
+        false,
+        "parent with one disabled required dep should be disabled"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['multi-dep-parent'],
+        "parent should not reach vim.pack.add"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['healthy-dep'],
+        "healthy dep is now exclusive to a disabled parent, should be pruned"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled=function(false) on a dep propagates to parent", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/fn-prop-parent',
+            dependencies = { 'test/fn-prop-dep' },
+          },
+          {
+            'test/fn-prop-dep',
+            enabled = function() return false end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/fn-prop-parent'].enabled_result,
+        false,
+        "parent should be propagation-disabled when dep's enabled function returns false"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['fn-prop-parent'],
+        "parent should not reach vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("cond=false on a dep does NOT propagate to parent (soft gate preserved)", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/cond-soft-parent',
+            dependencies = { 'test/cond-soft-dep' },
+          },
+          {
+            'test/cond-soft-dep',
+            cond = false,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      local parent_entry = state.spec_registry['https://github.com/test/cond-soft-parent']
+      helpers.assert_not_nil(parent_entry, "parent entry should exist")
+      helpers.assert_false(
+        parent_entry.enabled_result == false,
+        "parent must NOT be disabled just because a dep has cond=false (cond is soft)"
+      )
+      helpers.assert_not_nil(
+        _G.test_state.registered_pack_specs['cond-soft-parent'],
+        "parent should still reach vim.pack.add"
+      )
+      helpers.assert_not_nil(
+        _G.test_state.registered_pack_specs['cond-soft-dep'],
+        "cond=false dep should still reach vim.pack.add as a dep of an enabled parent"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled function is evaluated once per spec, not eagerly at import", function()
+      helpers.setup_test_env()
+      local call_count = 0
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/single-eval',
+            enabled = function()
+              call_count = call_count + 1
+              return false
+            end,
+            dependencies = { 'test/single-eval-dep' },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_equal(
+        call_count,
+        1,
+        "enabled function should be called exactly once (post-merge), not also at import time"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("cond_result is nil before register_all and set after", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          { 'test/cond-none' },
+          { 'test/cond-yes', cond = true },
+          { 'test/cond-no', cond = false },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/cond-none'].cond_result,
+        true,
+        "plugin without cond should end up with cond_result=true after register_all"
+      )
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/cond-yes'].cond_result,
+        true,
+        "plugin with cond=true should end up with cond_result=true after register_all"
+      )
+      helpers.assert_equal(
+        state.spec_registry['https://github.com/test/cond-no'].cond_result,
+        false,
+        "plugin with cond=false should end up with cond_result=false after register_all"
+      )
+
+      helpers.cleanup_test_env()
+    end)
   end)
 end

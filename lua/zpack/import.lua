@@ -5,16 +5,6 @@ local M = {}
 
 local imported_modules = {}
 
----@param spec zpack.Spec
----@return boolean
-local is_enabled = function(spec)
-  if spec.enabled == false or (type(spec.enabled) == "function" and not spec.enabled()) then
-    return false
-  end
-  return true
-end
-
-
 ---Normalize plugin source using priority: [1] > src > url > dir
 ---@param spec zpack.Spec
 ---@return string|nil source URL/path, or nil if invalid
@@ -168,11 +158,10 @@ M.import_specs = function(spec_item_or_list, ctx)
       or spec_item_or_list --[[@as zpack.Spec[] ]]
 
   for _, spec in ipairs(specs) do
-    if not is_enabled(spec) then
-      goto continue
-    end
-
     if is_import_spec(spec) then
+      if spec.enabled == false or (type(spec.enabled) == "function" and not spec.enabled()) then
+        goto continue
+      end
       import_from_module(spec.import, ctx)
       goto continue
     end
@@ -190,6 +179,10 @@ M.import_specs = function(spec_item_or_list, ctx)
       state.spec_registry[src] = { specs = { spec }, load_status = "pending" }
     end
 
+    -- Walk dependencies unconditionally. `enabled` is evaluated post-merge
+    -- in resolve_all; gating the dep walk on the raw pre-merge spec would
+    -- call function-form `enabled` eagerly at import time and diverge from
+    -- the merged truth. prune_disabled_subtrees handles cleanup afterward.
     if spec.dependencies then
       local dep_specs = normalize_dependencies(spec.dependencies, src)
       state.dependency_graph[src] = state.dependency_graph[src] or {}

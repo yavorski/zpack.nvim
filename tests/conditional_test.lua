@@ -18,7 +18,17 @@ return function()
 
       helpers.flush_pending()
       local src = 'https://github.com/test/plugin'
-      helpers.assert_nil(state.spec_registry[src], "Plugin should not be registered when enabled=false")
+      local entry = state.spec_registry[src]
+      helpers.assert_not_nil(entry, "Registry entry should still exist when enabled=false")
+      helpers.assert_equal(entry.enabled_result, false, "enabled_result should be false")
+      helpers.assert_false(
+        vim.tbl_contains(state.registered_plugin_names, 'plugin'),
+        "Plugin should not be in registered_plugin_names when enabled=false"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['plugin'],
+        "Plugin should not be passed to vim.pack.add when enabled=false"
+      )
 
       helpers.cleanup_test_env()
     end)
@@ -60,9 +70,46 @@ return function()
 
       helpers.flush_pending()
       local src = 'https://github.com/test/plugin'
+      local entry = state.spec_registry[src]
+      helpers.assert_not_nil(entry, "Registry entry should still exist when enabled function returns false")
+      helpers.assert_equal(entry.enabled_result, false, "enabled_result should be false")
+      helpers.assert_false(
+        vim.tbl_contains(state.registered_plugin_names, 'plugin'),
+        "Plugin should not be in registered_plugin_names"
+      )
       helpers.assert_nil(
-        state.spec_registry[src],
-        "Plugin should not be registered when enabled function returns false"
+        _G.test_state.registered_pack_specs['plugin'],
+        "Plugin should not be passed to vim.pack.add"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("enabled function returning nil counts as disabled", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/plugin',
+            enabled = function() return nil end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+      local entry = state.spec_registry['https://github.com/test/plugin']
+      helpers.assert_not_nil(entry, "entry should still exist")
+      helpers.assert_equal(
+        entry.enabled_result,
+        false,
+        "enabled function returning nil should be treated as disabled"
+      )
+      helpers.assert_nil(
+        _G.test_state.registered_pack_specs['plugin'],
+        "nil-returning enabled should not reach vim.pack.add"
       )
 
       helpers.cleanup_test_env()
@@ -302,6 +349,56 @@ return function()
 
       local should_load = utils.check_cond(spec, nil, true)
       helpers.assert_false(should_load, "Plugin should not load when spec.cond=false even if default_cond=true")
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("cond function receives nil-safe plugin arg at merge-pipeline time", function()
+      helpers.setup_test_env()
+      local state = require('zpack.state')
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/plugin',
+            cond = function(plugin) return plugin ~= nil end,
+            config = function() end,
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      local entry = state.spec_registry['https://github.com/test/plugin']
+      helpers.assert_not_nil(entry, "Registry entry should exist")
+      helpers.assert_equal(
+        entry.cond_result,
+        true,
+        "cond function should receive a non-nil plugin arg at registration"
+      )
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("check_enabled handles merge_and-composed functions without crashing", function()
+      helpers.setup_test_env()
+      local merge = require('zpack.merge')
+      local utils = require('zpack.utils')
+
+      local base = { enabled = function() return true end }
+      local incoming = { enabled = function() return false end }
+      local merged = merge.merge_specs(base, incoming)
+
+      helpers.assert_equal(type(merged.enabled), "function", "merged enabled should be a function")
+      local result = utils.check_enabled(merged)
+      helpers.assert_false(result, "merged function AND_LOGIC should evaluate to false")
+
+      local both_true = merge.merge_specs(
+        { enabled = function() return true end },
+        { enabled = function() return true end }
+      )
+      helpers.assert_true(utils.check_enabled(both_true), "both-true functions should merge to true")
 
       helpers.cleanup_test_env()
     end)

@@ -3,7 +3,8 @@ local M = {}
 M.OVERRIDE = "override"
 M.LIST_EXTEND = "list_extend"
 M.DEEP_MERGE = "deep_merge"
-M.AND_LOGIC = "and_logic"
+M.AND_LOGIC_COND = "and_logic_cond"
+M.AND_LOGIC_ENABLED = "and_logic_enabled"
 
 M.field_strategies = {
   name = M.OVERRIDE,
@@ -27,8 +28,8 @@ M.field_strategies = {
 
   opts = M.DEEP_MERGE,
 
-  cond = M.AND_LOGIC,
-  enabled = M.AND_LOGIC,
+  cond = M.AND_LOGIC_COND,
+  enabled = M.AND_LOGIC_ENABLED,
 }
 
 local internal_fields = {
@@ -103,12 +104,13 @@ local function extend_unique(base, incoming)
 end
 
 ---@alias zpack.CondValue boolean|fun(plugin: zpack.Plugin):boolean
+---@alias zpack.EnabledValue boolean|fun():boolean
 
----Merge AND logic fields (both must be truthy or nil)
+---Merge cond AND logic: both must be truthy. Functions receive the plugin arg.
 ---@param base zpack.CondValue?
 ---@param incoming zpack.CondValue?
 ---@return zpack.CondValue?
-local function merge_and(base, incoming)
+local function merge_and_cond(base, incoming)
   if base == nil then
     return incoming
   end
@@ -118,8 +120,43 @@ local function merge_and(base, incoming)
 
   if type(base) == "function" or type(incoming) == "function" then
     return function(plugin)
-      local base_result = type(base) == "function" and base(plugin) or base
-      local incoming_result = type(incoming) == "function" and incoming(plugin) or incoming
+      local base_result = base
+      if type(base) == "function" then
+        base_result = base(plugin)
+      end
+      local incoming_result = incoming
+      if type(incoming) == "function" then
+        incoming_result = incoming(plugin)
+      end
+      return base_result and incoming_result
+    end
+  end
+
+  return base and incoming
+end
+
+---Merge enabled AND logic: both must be truthy. Functions are called with no arguments.
+---@param base zpack.EnabledValue?
+---@param incoming zpack.EnabledValue?
+---@return zpack.EnabledValue?
+local function merge_and_enabled(base, incoming)
+  if base == nil then
+    return incoming
+  end
+  if incoming == nil then
+    return base
+  end
+
+  if type(base) == "function" or type(incoming) == "function" then
+    return function()
+      local base_result = base
+      if type(base) == "function" then
+        base_result = base()
+      end
+      local incoming_result = incoming
+      if type(incoming) == "function" then
+        incoming_result = incoming()
+      end
       return base_result and incoming_result
     end
   end
@@ -160,8 +197,10 @@ function M.merge_specs(base, incoming)
         else
           result[key] = incoming_val
         end
-      elseif strategy == M.AND_LOGIC then
-        result[key] = merge_and(base_val, incoming_val)
+      elseif strategy == M.AND_LOGIC_COND then
+        result[key] = merge_and_cond(base_val, incoming_val)
+      elseif strategy == M.AND_LOGIC_ENABLED then
+        result[key] = merge_and_enabled(base_val, incoming_val)
       end
     end
   end
@@ -230,6 +269,88 @@ function M.resolve_opts(specs, plugin)
   return accumulated
 end
 
+local function entry_is_dep_only(entry)
+  for _, spec in ipairs(entry.specs) do
+    if not spec._is_dependency then
+      return false
+    end
+  end
+  return true
+end
+
+local function strip_outgoing_edges(state, src)
+  local outgoing = state.dependency_graph[src]
+  if not outgoing then
+    return {}
+  end
+  local newly_orphaned = {}
+  for dep_src in pairs(outgoing) do
+    local rdeps = state.reverse_dependency_graph[dep_src]
+    if rdeps then
+      rdeps[src] = nil
+      if next(rdeps) == nil then
+        state.reverse_dependency_graph[dep_src] = nil
+        table.insert(newly_orphaned, dep_src)
+      end
+    end
+  end
+  state.dependency_graph[src] = nil
+  return newly_orphaned
+end
+
+---Propagate enabled=false backward through reverse_dependency_graph.
+---A plugin whose required dependency is disabled cannot function, so it is
+---disabled too. Emits one warning per propagation step so the user learns
+---which dep caused the cascade. Runs before prune_disabled_subtrees so the
+---pruner picks up the newly-disabled parents.
+local function propagate_enabled_disable(state, utils)
+  local worklist = {}
+  for src, entry in pairs(state.spec_registry) do
+    if entry.enabled_result == false then
+      table.insert(worklist, src)
+    end
+  end
+
+  while #worklist > 0 do
+    local disabled_src = table.remove(worklist)
+    local parents = state.reverse_dependency_graph[disabled_src]
+    if parents then
+      for parent_src in pairs(parents) do
+        local parent_entry = state.spec_registry[parent_src]
+        if parent_entry and parent_entry.enabled_result ~= false then
+          parent_entry.enabled_result = false
+          utils.schedule_notify(
+            ("%s disabled because its dependency %s has enabled=false"):format(parent_src, disabled_src),
+            vim.log.levels.WARN
+          )
+          table.insert(worklist, parent_src)
+        end
+      end
+    end
+  end
+end
+
+local function prune_disabled_subtrees(state)
+  local worklist = {}
+  for src, entry in pairs(state.spec_registry) do
+    if entry.enabled_result == false then
+      table.insert(worklist, src)
+    end
+  end
+
+  while #worklist > 0 do
+    local src = table.remove(worklist)
+    local orphaned = strip_outgoing_edges(state, src)
+    for _, dep_src in ipairs(orphaned) do
+      local dep_entry = state.spec_registry[dep_src]
+      if dep_entry and entry_is_dep_only(dep_entry) then
+        state.spec_registry[dep_src] = nil
+        table.insert(worklist, dep_src)
+      end
+    end
+  end
+end
+
 ---Pre-compute merged_spec for all entries in the registry
 ---Creates pack_specs with merged data and returns sorted vim_packs array
 ---@return vim.pack.Spec[]
@@ -237,13 +358,25 @@ function M.resolve_all()
   local state = require('zpack.state')
   local utils = require('zpack.utils')
 
-  local vim_packs = {}
-
-  for src, entry in pairs(state.spec_registry) do
+  for _, entry in pairs(state.spec_registry) do
     if entry.specs and #entry.specs > 0 then
       entry.sorted_specs = M.sort_specs(entry.specs)
       entry.merged_spec = M.merge_spec_array(entry.sorted_specs)
+      entry.enabled_result = utils.check_enabled(entry.merged_spec)
+      -- cond_result is intentionally left nil here. It is written later by
+      -- registration.register_all's vim.pack.add load callback (which needs
+      -- the live plugin arg for function-form conds). Readers must treat
+      -- nil as "not yet evaluated" and only act on an explicit `== false`.
+      -- Do not read cond_result between resolve_all and register_all.
+    end
+  end
 
+  propagate_enabled_disable(state, utils)
+  prune_disabled_subtrees(state)
+
+  local vim_packs = {}
+  for src, entry in pairs(state.spec_registry) do
+    if entry.merged_spec and entry.enabled_result then
       local pack_spec = {
         src = src,
         version = utils.normalize_version(entry.merged_spec),

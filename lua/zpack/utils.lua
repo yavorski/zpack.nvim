@@ -141,6 +141,19 @@ M.resolve_field = function(field, plugin)
   return field
 end
 
+---@param spec zpack.Spec
+---@return boolean
+M.check_enabled = function(spec)
+  local en = spec.enabled
+  if en == false then
+    return false
+  end
+  if type(en) == "function" and not en() then
+    return false
+  end
+  return true
+end
+
 ---Check if spec.cond passes (with optional default fallback)
 ---@param spec zpack.Spec
 ---@param plugin zpack.Plugin?

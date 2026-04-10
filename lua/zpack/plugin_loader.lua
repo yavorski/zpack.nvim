@@ -116,6 +116,12 @@ M.process_spec = function(pack_spec, opts)
     for dep_src in pairs(deps) do
       local dep_entry = state.spec_registry[dep_src]
       if dep_entry and dep_entry.load_status ~= "loaded" then
+        if dep_entry.cond_result == false then
+          utils.schedule_notify(
+            ("%s has cond=false but is a dependency of %s and will be loaded anyway"):format(dep_src, pack_spec.src),
+            vim.log.levels.WARN
+          )
+        end
         local dep_pack_spec = find_pack_spec_by_src(dep_src)
         if dep_pack_spec then
           M.process_spec(dep_pack_spec, opts)

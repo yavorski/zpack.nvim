@@ -42,6 +42,13 @@ local function toposort_startup_packs(packs)
         if dep_pack then
           visit(dep_pack)
         elseif state.src_to_pack_spec[dep_src] then
+          local dep_entry = state.spec_registry[dep_src]
+          if dep_entry and dep_entry.cond_result == false then
+            util.schedule_notify(
+              ("%s has cond=false but is a dependency of %s and will be loaded anyway"):format(dep_src, pack.src),
+              vim.log.levels.WARN
+            )
+          end
           lazy_deps_map[pack.src] = lazy_deps_map[pack.src] or {}
           table.insert(lazy_deps_map[pack.src], dep_src)
         end
