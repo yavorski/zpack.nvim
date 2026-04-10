@@ -914,188 +914,32 @@ To fix this, add a route that explicitly shows `vim.pack` messages:
 ==============================================================================
 12. PUBLIC API                                              *zpack-public-api*
 
-The functions and types in this section are the supported surface for
-third-party tooling (e.g. UIs like zshow.nvim) that needs to inspect the
-plugins managed by zpack. They are covered by the stability promise below.
+Stable surface for third-party tooling (e.g. zshow.nvim). Everything else
+under `zpack.*` is internal. >lua
 
-The canonical module is `require('zpack.api')`. |zpack.api.VERSION|,
-|zpack.get_plugins()|, and |zpack.get_plugin()| are also re-exported on the
-root module for convenience.
-
-Everything exposed here lives under `lua/zpack/api/`. Modules outside that
-directory are INTERNAL — their shapes may change between commits. If you
-were previously reading `require('zpack.state').spec_registry` or similar,
-migrate to |zpack.api.get_plugins()|: `enabled = false` plugins are now
-pruned from the internal registry, so direct reads will miss them.
-
-Install-state queries (installed git revision, available updates, etc.)
-are intentionally NOT part of this API — they are owned by Neovim's
-`vim.pack` module, which is itself public and stable. If you need the
-installed rev for a plugin, call `vim.pack.get({ info.name }, { info =
-false })` directly; zpack does not re-export it.
-
-                                                            *zpack-api-stability*
-STABILITY
-
-- The intent is for functions and fields listed here to remain stable;
-  new fields may be added additively.
-- |zpack.api.VERSION| is bumped whenever the contract changes in a
-  consumer-observable way. Consumers can gate on it: >lua
-
-      if require('zpack.api').VERSION >= 2 then
-        -- use a field that will be introduced in v2
-      end
+    local api = require('zpack.api')
 <
-- A formal deprecation policy is not yet in place — it will be introduced
-  the first time an existing field needs to be retired, rather than
-  promised in advance.
-- `require('zpack.state')` and every other module under `zpack.*` (other
-  than `zpack.api`) are INTERNAL. Their shapes may change without notice;
-  do not depend on them.
+                                                          *zpack.PluginInfo*
+zpack.PluginInfo >lua
 
-                                                          *zpack.api.VERSION*
-zpack.api.VERSION
-                Integer API contract version. Currently `1`. Bumped when a
-                backward-compatible field is added or when a new value is
-                added to |zpack.PluginStatus|.
-
+    {
+      name   = string,
+      src    = string,
+      status = "loaded"|"pending"|"loading"|"disabled"|"installing",
+      lazy   = boolean,
+      path   = string?, -- nil while installing
+    }
+<
                                                    *zpack.api.get_plugins()*
                                                        *zpack.get_plugins()*
 get_plugins()
-
-    Return a snapshot of every plugin zpack knows about, sorted by `name`.
-    Plugins disabled by `enabled = false` (and any dep-only plugins that
-    become unreferenced as a result) are pruned during setup and will NOT
-    appear here — use `enabled` for hard disables that should vanish from
-    the registry, and `cond` for runtime conditions that should remain
-    visible with `status = "disabled"`. The returned array is freshly
-    allocated on each call; entries must be treated as read-only. zpack
-    itself is NOT listed — it bootstraps via `vim.pack.add` outside this
-    API; consumers that need to show it can query `vim.pack.get` directly.
-    >lua
-
-        for _, info in ipairs(require('zpack.api').get_plugins()) do
-          print(info.name, info.status)
-        end
-<
-    Return: ~
-        |zpack.PluginInfo|[]
+                Returns |zpack.PluginInfo|[], sorted by `name`.
 
                                                     *zpack.api.get_plugin()*
                                                         *zpack.get_plugin()*
 get_plugin({name})
-
-    Look up a single plugin by its resolved name. Returns a plugin
-    registered under {name}, or nil when none is registered; never
-    throws. `vim.pack.add` rejects name collisions within a single
-    setup(), so at most one entry can ever match. >lua
-
-        local info = require('zpack').get_plugin('telescope.nvim')
-        if info and info.status == 'loaded' then
-          -- ...
-        end
-<
-    Parameters: ~
-        {name}  (string) Resolved plugin name to look up.
-    Return: ~
-        |zpack.PluginInfo| or nil
-
-                                                          *zpack.PluginInfo*
-
-Snapshot of a registered plugin returned by |zpack.api.get_plugins()| and
-|zpack.api.get_plugin()|. Treat as read-only. >lua
-
-    {
-      name   = string,                        -- resolved plugin name
-      src    = string,                        -- git URL or local path
-                                              --   passed to vim.pack.add
-      status = "loaded"|"pending"             -- current load/enablement
-             | "loading"|"disabled"           --   state
-             | "installing",
-      lazy   = boolean,                       -- configured to lazy-load?
-      path   = string?,                       -- plugin directory on disk
-                                              --   (nil when installing)
-    }
-<
-                                                     *zpack.PluginInfo.name*
-name            (string)
-                Resolved plugin name and the stable lookup key for
-                |zpack.api.get_plugin()|. Matches the name zpack uses for
-                tab completion, commands like |:ZUpdate|, and the
-                directory under `site/pack/zpack/opt`. Unique within a
-                single setup().
-
-                                                      *zpack.PluginInfo.src*
-src             (string)
-                The git URL or local path zpack passed to `vim.pack.add`
-                for this plugin — the same value you would put in a
-                spec's `src` / `dir` / `url` field, or the URL zpack
-                derived from the `"user/repo"` shorthand. Unique within
-                a single setup(), and safe to pass back to `vim.pack.get`
-                or display in a UI. Use `name` (not `src`) as the
-                |zpack.api.get_plugin()| lookup key.
-
-                                                   *zpack.PluginInfo.status*
-status          ("loaded"|"pending"|"loading"|"disabled"|"installing")
-                Current state of the plugin:
-                - "loaded"   : plugin has been loaded into the session
-                - "pending"  : registered but not yet loaded (e.g. a lazy
-                               plugin whose trigger has not fired)
-                - "loading"  : currently mid-load (observable inside the
-                               plugin's own `config` callback when it is
-                               lazy-loaded)
-                - "disabled" : `cond` resolved to false. The plugin IS
-                               registered with `vim.pack.add` (so `path`
-                               is populated), but zpack skips its config/
-                               load steps. Plugins disabled by `enabled =
-                               false` are pruned entirely and do not
-                               appear in this API — and `:ZClean` will
-                               delete them from disk, which is the
-                               intended hard-disable semantic. Use
-                               `cond = false` to keep the plugin
-                               installed but inactive.
-                - "installing": spec is registered but `vim.pack.add`'s
-                               load callback has not fired yet (typically
-                               a fresh install awaiting user confirmation
-                               or an async download). `path` is nil for
-                               these entries. |zpack.api.get_plugin()|
-                               can still resolve them: the reported
-                               `name` is derived from the spec (explicit
-                               `name`, or the basename of `src` with
-                               `.git` stripped, matching `vim.pack`'s own
-                               derivation) and stays stable as the entry
-                               transitions to pending / loaded.
-
-                                                     *zpack.PluginInfo.lazy*
-lazy            (boolean)
-                Whether the plugin is configured to lazy-load (either by
-                `lazy = true` or by setting a trigger like `event`, `cmd`,
-                `keys`, or `ft`). Resolved from the merged spec during
-                setup, so the value is stable across the installing →
-                pending → loaded lifecycle. For function-form triggers
-                the pre-install answer is computed without a plugin
-                argument; the post-install callback re-computes with the
-                real plugin, so a function-form trigger may disagree
-                between those two states in rare cases.
-
-                                                     *zpack.PluginInfo.path*
-path            (string or nil)
-                Absolute path to the plugin directory on disk. Populated
-                by `vim.pack.add`'s load callback, which resolves the
-                path before `cond` is evaluated — so `path` is present
-                for every "loaded"/"pending"/"loading"/"disabled" entry.
-                It is `nil` only while `status == "installing"` (the
-                load callback has not fired yet, typically a fresh
-                install awaiting user confirmation); check `status` or
-                nil-guard before using it.
-
-                                               *zpack-api-install-state*
-INSTALL STATE (rev, updates, ...)
-
-Not part of this API. Use `vim.pack.get({ info.name }, { info = false })`
-to fetch the checked-out revision, or `{ info = true }` for upstream /
-update information. `vim.pack` is itself public and stable, so zpack
-deliberately does not re-export or wrap it.
+                Returns |zpack.PluginInfo| or nil for the given resolved
+                name.
 
 ==============================================================================
 13. EXTENSIONS                                           *zpack-extensions*
