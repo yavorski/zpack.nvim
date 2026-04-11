@@ -37,17 +37,9 @@ end
 ---@param spec zpack.Spec
 function M.run_config(src, plugin, spec)
   local registry_entry = state.spec_registry[src]
-  local resolved_opts
-  if registry_entry.sorted_specs and #registry_entry.sorted_specs > 1 then
-    resolved_opts = merge.resolve_opts(registry_entry.sorted_specs, plugin)
-  else
-    local opts = spec.opts
-    if type(opts) == "function" then
-      resolved_opts = opts(plugin, {}) or {}
-    else
-      resolved_opts = opts or {}
-    end
-  end
+  -- resolve_opts is the single authoritative path for opts; it walks
+  -- sorted_specs fresh so function-form opts compose correctly.
+  local resolved_opts = merge.resolve_opts(registry_entry.sorted_specs or {}, plugin)
   local main = utils.resolve_main(plugin, spec)
 
   if type(spec.config) == "function" then
@@ -56,7 +48,7 @@ function M.run_config(src, plugin, spec)
     if not ok then
       utils.schedule_notify(("Failed to run config for %s: %s"):format(src, err), vim.log.levels.ERROR)
     end
-  elseif spec.config == true or spec.opts ~= nil then
+  elseif spec.config == true or registry_entry.has_opts then
     if not main then
       utils.schedule_notify(
         ("Could not determine main module for %s. Please set `main` explicitly or use `config = function() ... end`.")
@@ -135,7 +127,7 @@ M.process_spec = function(pack_spec, opts)
     end
   end
 
-  if spec.config or spec.opts ~= nil then
+  if spec.config or registry_entry.has_opts then
     M.run_config(pack_spec.src, plugin, spec)
   end
 

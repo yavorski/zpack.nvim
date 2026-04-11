@@ -251,18 +251,27 @@ return function()
   end)
 
   helpers.describe("Merge Module Unit Tests", function()
-    helpers.test("merge_specs deep merges opts", function()
+    helpers.test("merge_specs skips opts (resolved lazily by resolve_opts)", function()
       helpers.setup_test_env()
       local merge = require('zpack.merge')
 
+      -- opts is intentionally not collapsed by merge_specs. It is resolved
+      -- at load time by resolve_opts so function-form opts compose correctly
+      -- with a single authoritative code path. See merge.lua field_strategies
+      -- comment. Callers that need the deep-merged value should invoke
+      -- merge.resolve_opts(sorted_specs, plugin).
       local base = { opts = { a = 1, nested = { x = 1 } } }
       local incoming = { opts = { b = 2, nested = { y = 2 } } }
       local result = merge.merge_specs(base, incoming)
 
-      helpers.assert_equal(result.opts.a, 1)
-      helpers.assert_equal(result.opts.b, 2)
-      helpers.assert_equal(result.opts.nested.x, 1)
-      helpers.assert_equal(result.opts.nested.y, 2)
+      helpers.assert_nil(result.opts, "merge_specs must never populate opts")
+
+      -- resolve_opts is the authoritative path and deep-merges table-form opts.
+      local resolved = merge.resolve_opts({ base, incoming }, {})
+      helpers.assert_equal(resolved.a, 1)
+      helpers.assert_equal(resolved.b, 2)
+      helpers.assert_equal(resolved.nested.x, 1)
+      helpers.assert_equal(resolved.nested.y, 2)
 
       helpers.cleanup_test_env()
     end)

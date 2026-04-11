@@ -2,10 +2,14 @@ local M = {}
 
 M.OVERRIDE = "override"
 M.LIST_EXTEND = "list_extend"
-M.DEEP_MERGE = "deep_merge"
 M.AND_LOGIC_COND = "and_logic_cond"
 M.AND_LOGIC_ENABLED = "and_logic_enabled"
 
+-- `opts` is intentionally absent from this table. It is resolved lazily at
+-- load time by `resolve_opts` so that function-form opts (which receive the
+-- accumulated opts and may return a replacement) are handled with a single
+-- authoritative code path. `merge_specs` skips `opts` entirely; callers that
+-- need to know "does any spec contribute opts?" read `entry.has_opts`.
 M.field_strategies = {
   name = M.OVERRIDE,
   main = M.OVERRIDE,
@@ -25,8 +29,6 @@ M.field_strategies = {
   cmd = M.LIST_EXTEND,
   ft = M.LIST_EXTEND,
   keys = M.LIST_EXTEND,
-
-  opts = M.DEEP_MERGE,
 
   cond = M.AND_LOGIC_COND,
   enabled = M.AND_LOGIC_ENABLED,
@@ -176,7 +178,10 @@ function M.merge_specs(base, incoming)
   for k in pairs(incoming) do all_keys[k] = true end
 
   for key in pairs(all_keys) do
-    if internal_fields[key] then
+    if key == "opts" then
+      -- Skip: opts is resolved lazily via resolve_opts at load time.
+      -- See the comment above M.field_strategies.
+    elseif internal_fields[key] then
       result[key] = incoming[key] ~= nil and incoming[key] or base[key]
     else
       local strategy = M.field_strategies[key] or M.OVERRIDE
@@ -191,12 +196,6 @@ function M.merge_specs(base, incoming)
         result[key] = incoming_val
       elseif strategy == M.LIST_EXTEND then
         result[key] = extend_unique(to_array(base_val), to_array(incoming_val))
-      elseif strategy == M.DEEP_MERGE then
-        if type(base_val) == "table" and type(incoming_val) == "table" then
-          result[key] = vim.tbl_deep_extend("force", base_val, incoming_val)
-        else
-          result[key] = incoming_val
-        end
       elseif strategy == M.AND_LOGIC_COND then
         result[key] = merge_and_cond(base_val, incoming_val)
       elseif strategy == M.AND_LOGIC_ENABLED then
@@ -227,19 +226,15 @@ function M.sort_specs(specs)
   return sorted
 end
 
----Merge an array of specs in order (lowest priority first)
+---Merge an array of specs in order (lowest priority first).
+---Always returns a fresh table (never a reference to any input spec), and
+---`opts` is always absent from the result — it is resolved at load time via
+---`resolve_opts` so function-form opts are handled consistently.
 ---@param specs zpack.Spec[]
 ---@return zpack.Spec
 function M.merge_spec_array(specs)
-  if #specs == 0 then
-    return {}
-  end
-  if #specs == 1 then
-    return specs[1]
-  end
-
-  local result = specs[1]
-  for i = 2, #specs do
+  local result = {}
+  for i = 1, #specs do
     result = M.merge_specs(result, specs[i])
   end
   return result
@@ -368,6 +363,16 @@ function M.resolve_all()
       entry.sorted_specs = M.sort_specs(entry.specs)
       entry.merged_spec = M.merge_spec_array(entry.sorted_specs)
       entry.enabled_result = utils.check_enabled(entry.merged_spec)
+      -- `opts` is deliberately not stored on merged_spec; compute a boolean
+      -- summary once here so existence checks in plugin_loader / startup can
+      -- answer "does any spec contribute opts?" without re-scanning.
+      entry.has_opts = false
+      for _, s in ipairs(entry.sorted_specs) do
+        if s.opts ~= nil then
+          entry.has_opts = true
+          break
+        end
+      end
       -- cond_result is intentionally left nil here. It is written later by
       -- registration.register_all's vim.pack.add load callback (which needs
       -- the live plugin arg for function-form conds). Readers must treat
