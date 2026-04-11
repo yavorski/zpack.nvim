@@ -17,7 +17,8 @@ return function()
       local entry = state.spec_registry['https://github.com/test/plugin']
 
       helpers.assert_not_nil(entry, "plugin should be registered")
-      helpers.assert_equal(entry.merged_spec.opts.foo, true, "opts should be preserved")
+      helpers.assert_true(entry.has_opts, "entry should record that opts were contributed")
+      helpers.assert_equal(entry.sorted_specs[1].opts.foo, true, "opts should be preserved")
 
       helpers.cleanup_test_env()
     end)
@@ -64,8 +65,9 @@ return function()
       local dep_entry = state.spec_registry['https://github.com/test/dep']
 
       helpers.assert_not_nil(dep_entry, "dependency should be registered")
-      helpers.assert_not_nil(dep_entry.merged_spec.opts, "opts should be preserved on dependency")
-      helpers.assert_equal(dep_entry.merged_spec.opts.select.lookahead, true,
+      helpers.assert_true(dep_entry.has_opts, "dep entry should record that opts were contributed")
+      helpers.assert_not_nil(dep_entry.sorted_specs[1].opts, "opts should be preserved on dependency")
+      helpers.assert_equal(dep_entry.sorted_specs[1].opts.select.lookahead, true,
         "opts fields should be preserved")
       helpers.assert_not_nil(dep_entry.merged_spec.init, "init should be preserved on dependency")
 

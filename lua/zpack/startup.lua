@@ -102,7 +102,7 @@ M.process_all = function(ctx)
 
     local entry = state.spec_registry[pack_spec.src]
     local spec = entry.merged_spec
-    if spec.config or spec.opts ~= nil then
+    if spec.config or entry.has_opts then
       loader.run_config(pack_spec.src, entry.plugin, spec)
     end
   end

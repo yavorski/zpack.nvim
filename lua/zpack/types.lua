@@ -74,6 +74,7 @@
 ---@field specs zpack.Spec[]
 ---@field sorted_specs? zpack.Spec[]
 ---@field merged_spec? zpack.Spec
+---@field has_opts? boolean Whether any spec in this entry contributes opts; authoritative existence check
 ---@field plugin zpack.Plugin?
 ---@field load_status zpack.LoadStatus
 ---@field enabled_result? boolean

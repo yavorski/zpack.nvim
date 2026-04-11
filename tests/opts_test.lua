@@ -2,7 +2,7 @@ local helpers = require('helpers')
 
 return function()
   helpers.describe("Plugin opts and auto-setup", function()
-    helpers.test("opts table is stored in spec", function()
+    helpers.test("opts table is recorded on the registry entry", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -18,15 +18,18 @@ return function()
       helpers.flush_pending()
       local state = require('zpack.state')
       local src = 'https://github.com/test/plugin'
-      local spec = state.spec_registry[src].merged_spec
-      helpers.assert_not_nil(spec.opts, "opts should be stored")
-      helpers.assert_equal(spec.opts.enabled, true)
-      helpers.assert_equal(spec.opts.theme, 'dark')
+      local entry = state.spec_registry[src]
+      helpers.assert_true(entry.has_opts, "has_opts should be true")
+      -- opts is intentionally not stored on merged_spec; the raw value lives
+      -- on sorted_specs and is resolved at load time via resolve_opts.
+      helpers.assert_nil(entry.merged_spec.opts, "merged_spec.opts must always be nil")
+      helpers.assert_equal(entry.sorted_specs[1].opts.enabled, true)
+      helpers.assert_equal(entry.sorted_specs[1].opts.theme, 'dark')
 
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("opts function is stored in spec", function()
+    helpers.test("opts function is recorded on the sorted spec", function()
       helpers.setup_test_env()
       local opts_fn = function() return { test = true } end
 
@@ -43,8 +46,10 @@ return function()
       helpers.flush_pending()
       local state = require('zpack.state')
       local src = 'https://github.com/test/plugin'
-      local spec = state.spec_registry[src].merged_spec
-      helpers.assert_equal(type(spec.opts), 'function')
+      local entry = state.spec_registry[src]
+      helpers.assert_true(entry.has_opts, "has_opts should be true for function-form opts")
+      helpers.assert_nil(entry.merged_spec.opts, "merged_spec.opts must always be nil")
+      helpers.assert_equal(type(entry.sorted_specs[1].opts), 'function')
 
       helpers.cleanup_test_env()
     end)
