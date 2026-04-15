@@ -898,7 +898,13 @@ install/update feedback   `vim.pack` surfaces install/update progress
                           notes.
 
 ------------------------------------------------------------------------------
-11.3 SNACKS.NVIM DASHBOARD                         *zpack-tip-snacks*
+11.3 COMPATIBILITY NOTES                              *zpack-compat-notes*
+
+Workarounds for third-party plugins that assume lazy.nvim or filter out
+`vim.pack` messages.
+
+                                                         *zpack-tip-snacks*
+SNACKS.NVIM DASHBOARD ~
 
 The default Snacks.nvim dashboard configuration includes a startup time
 section that has a hard dependency on lazy.nvim. This will cause errors with
@@ -918,8 +924,8 @@ To work around this, remove the startup section from your dashboard config:
 <
 See: https://github.com/folke/snacks.nvim/issues/1778
 
-------------------------------------------------------------------------------
-11.4 NOICE.NVIM WITH VIM.PACK                      *zpack-tip-noice*
+                                                          *zpack-tip-noice*
+NOICE.NVIM WITH VIM.PACK ~
 
 noice.nvim filters out `vim.pack` messages by default, which means you
 won't see install/update notifications from your plugin manager.
