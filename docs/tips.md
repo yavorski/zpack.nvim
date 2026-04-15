@@ -6,8 +6,12 @@ Most of your lazy.nvim plugin specs will work as-is with zpack. However, zpack f
 - **version pinning**: lazy.nvim's `version` field maps to zpack's `sem_version`. See [Spec Reference](spec.md) and [version pinning examples](examples.md#version-pinning-for-lazynvim-compatibility)
 - **dev mode**: Use `src = vim.fn.expand('~/projects/my_plugin.nvim')` for local development
 - **profiling**: Use `nvim --startuptime startuptime.log`. Also refer to example [Neovim Profiler script](https://gist.github.com/zuqini/35993710f81983fbfa6baca67bdb32ed)
-- **install/update feedback**: `vim.pack` surfaces progress via `:messages` (e.g. `vim.pack: Downloading updates (0/83)`) instead of a dedicated UI. These messages are hidden if you have `vim.opt.cmdheight = 0` — raise it, check `:messages`, or route them through a notifier like [snacks.notifier](https://github.com/folke/snacks.nvim), [nvim-notify](https://github.com/rcarriga/nvim-notify), or [noice.nvim](https://github.com/folke/noice.nvim)
-- **passive libraries**: lazy.nvim's community specs silently force utility libraries like `plenary.nvim` to `lazy = true` regardless of your config. zpack respects your spec as-written, so set `lazy = true` explicitly on pure-dependency plugins you don't want eager-loaded
+- **default lazy plugins**: lazy.nvim's community specs silently default top-level specs for utility libraries like `plenary.nvim` to `lazy = true`, even without lazy triggers or a lazy parent. zpack respects your specs as-written, so set `lazy = true` explicitly on such specs if you want the same default
+
+## Tips
+
+General tips and gotchas when using zpack:
+- **install/update feedback**: `vim.pack` surfaces install/update progress via `:messages` (e.g. `vim.pack: Downloading updates (0/83)`). These messages are hidden if you have `vim.opt.cmdheight = 0` — raise it, check `:messages`, or route them through a notifier like [snacks.notifier](https://github.com/folke/snacks.nvim), [nvim-notify](https://github.com/rcarriga/nvim-notify), or [noice.nvim](https://github.com/folke/noice.nvim). Also see [noice.nvim with vim.pack](#noicenvim-with-vimpack) for compatibility notes
 
 ## Compatibility Notes
 
