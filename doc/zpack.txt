@@ -880,11 +880,11 @@ default lazy plugins      lazy.nvim's community specs silently default
                           default.
 
 ------------------------------------------------------------------------------
-11.2 TIPS                                                         *zpack-tips*
+11.2 GOTCHAS                                                   *zpack-gotchas*
 
-General tips and gotchas when using zpack:
+Known gotchas when using zpack:
 
-                                                   *zpack-tip-install-update*
+                                                *zpack-gotcha-install-update*
 install/update feedback   `vim.pack` surfaces install/update progress
                           via `:messages` (e.g. "vim.pack: Downloading
                           updates (0/83)"). These messages are hidden
