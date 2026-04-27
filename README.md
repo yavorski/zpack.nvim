@@ -125,13 +125,13 @@ require('zpack').setup({
 Neovim 0.12+ includes a built-in package manager (`vim.pack`) that handles plugin installation, updates, and version management. zpack is a thin layer that adds lazy-loading capabilities and support for a lazy.nvim-like declarative spec while completely leveraging the native infrastructure.
 
 #### Features
-- [z***pack***] is completely native
+- 'z***pack***' is completely native
     - Install and manage your plugins _(including zpack)_ all within `vim.pack`
     - zpack shares the same native user experience as `vim.pack` — cloning, updates, lockfile, and version management. Your editor stays aligned with Neovim core's design philosophy and evolves with it
-- [<img width="14" src="https://github.com/user-attachments/assets/1c28419d-f791-4aa4-ada1-b34fb12e95d5">pack] is "batteries included"
+- '<img width="14" src="https://github.com/user-attachments/assets/1c28419d-f791-4aa4-ada1-b34fb12e95d5">pack' is "batteries included"
     - Add plugins using the same lazy.nvim spec provided by plugin authors you know and love
     - Minimal configurations necessary
-- [💤pack] powers up `vim.pack` without the frills
+- '💤pack' powers up `vim.pack` without the frills
     - Powerful lazy-loading triggers
     - Build triggers for installation/updates
     - Plugin management commands
