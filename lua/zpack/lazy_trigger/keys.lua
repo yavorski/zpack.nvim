@@ -47,6 +47,12 @@ M.setup = function(registered_pack_specs)
   -- Create keymaps
   for _, key_info in pairs(key_to_info) do
     local lhs = key_info.key_spec[1]
+    local key_spec = key_info.key_spec
+    -- lazy.nvim noremap alias: explicit remap wins; otherwise derive from noremap.
+    local remap = key_spec.remap
+    if remap == nil and key_spec.noremap ~= nil then
+      remap = not key_spec.noremap
+    end
     keymap.map(lhs, function()
       pcall(vim.keymap.del, key_info.split_mode, lhs)
       for _, pack_spec in ipairs(key_info.pack_specs) do
@@ -54,14 +60,15 @@ M.setup = function(registered_pack_specs)
       end
       vim.api.nvim_feedkeys(vim.keycode(lhs), 'm', false)
     end, {
-      desc = key_info.key_spec.desc,
+      desc = key_spec.desc,
       mode = key_info.split_mode,
-      -- Forward latency/UX-affecting opts so the first (proxy) press matches
-      -- subsequent presses through the real keymap. expr/replace_keycodes are
-      -- excluded — the proxy's rhs is a Lua callback returning nil; making it
-      -- expr would feed nil as keys and the plugin would never load.
-      nowait = key_info.key_spec.nowait,
-      silent = key_info.key_spec.silent,
+      -- Forward user-facing opts so the first (proxy) press matches subsequent
+      -- presses through the real keymap. expr/replace_keycodes are the only
+      -- omissions: the proxy's rhs is a Lua callback returning nil, so making
+      -- it expr would feed nil keys and the plugin would never load.
+      nowait = key_spec.nowait,
+      silent = key_spec.silent,
+      remap = remap,
     })
   end
 end

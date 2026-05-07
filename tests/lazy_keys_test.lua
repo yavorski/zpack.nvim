@@ -500,5 +500,135 @@ return function()
 
       helpers.cleanup_test_env()
     end)
+
+    helpers.test("KeySpec preserves explicit replace_keycodes=false override", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/plugin',
+            lazy = false,
+            keys = {
+              { '<leader>tro', function() return '<Esc>' end, expr = true, replace_keycodes = false },
+            },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+      local keymaps = vim.api.nvim_get_keymap('n')
+      local found = false
+      for _, map in ipairs(keymaps) do
+        if map.lhs == ' tro' then
+          found = true
+          helpers.assert_equal(map.expr, 1, "expr should be forwarded")
+          helpers.assert_equal(map.replace_keycodes, 0, "explicit replace_keycodes=false must override the expr-implied default")
+          break
+        end
+      end
+      helpers.assert_true(found, "Eager KeySpec should create keymap")
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("Lazy proxy keymap forwards remap=true", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/plugin',
+            keys = {
+              { '<leader>txr', function() end, remap = true },
+            },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+      local keymaps = vim.api.nvim_get_keymap('n')
+      local found = false
+      for _, map in ipairs(keymaps) do
+        if map.lhs == ' txr' then
+          found = true
+          helpers.assert_equal(map.noremap, 0, "Lazy proxy should reflect remap=true (noremap=0)")
+          break
+        end
+      end
+      helpers.assert_true(found, "Lazy proxy keymap should be installed")
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("Lazy proxy keymap translates noremap=false alias", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/plugin',
+            keys = {
+              { '<leader>txn', function() end, noremap = false },
+            },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+      local keymaps = vim.api.nvim_get_keymap('n')
+      local found = false
+      for _, map in ipairs(keymaps) do
+        if map.lhs == ' txn' then
+          found = true
+          helpers.assert_equal(map.noremap, 0, "Lazy proxy should translate noremap=false to remap=true")
+          break
+        end
+      end
+      helpers.assert_true(found, "Lazy proxy keymap should be installed")
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("Lazy proxy load handoff installs the real expr keymap", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/plugin',
+            keys = {
+              { '<leader>txp', function() return '' end, expr = true },
+            },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      local function find_map(lhs)
+        for _, map in ipairs(vim.api.nvim_get_keymap('n')) do
+          if map.lhs == lhs then return map end
+        end
+        return nil
+      end
+
+      local proxy = find_map(' txp')
+      helpers.assert_not_nil(proxy, "Proxy keymap should be installed")
+      helpers.assert_equal(proxy.expr, 0, "Proxy must not be expr")
+
+      vim.api.nvim_feedkeys(' txp', 'mx', false)
+      helpers.flush_pending()
+
+      local real = find_map(' txp')
+      helpers.assert_not_nil(real, "Real keymap should exist after lazy proxy fires")
+      helpers.assert_equal(real.expr, 1, "Post-load real keymap should be expr=true")
+
+      helpers.cleanup_test_env()
+    end)
   end)
 end
