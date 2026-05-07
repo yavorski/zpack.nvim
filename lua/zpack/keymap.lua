@@ -2,18 +2,32 @@ local util = require('zpack.utils')
 
 local M = {}
 
----@param mapping string
+local SUPPORTED_OPTS = { 'desc', 'remap', 'nowait', 'expr', 'silent', 'replace_keycodes' }
+
+---@param lhs string
 ---@param rhs string|fun()
----@param remap? boolean
----@param desc? string
----@param mode? string|string[]
----@param nowait? boolean
-M.map = function(mapping, rhs, remap, desc, mode, nowait)
-  if remap == nil then remap = false end
-  desc = desc or ""
-  mode = mode or { 'n' }
-  if nowait == nil then nowait = false end
-  vim.keymap.set(mode, mapping, rhs, { desc = desc, remap = remap, nowait = nowait })
+---@param opts? zpack.KeySpec|zpack.KeymapOpts
+M.map = function(lhs, rhs, opts)
+  opts = opts or {}
+  local set_opts = {}
+  for _, k in ipairs(SUPPORTED_OPTS) do
+    set_opts[k] = opts[k]
+  end
+  -- lazy.nvim compat: noremap is the inverse of remap. Explicit `remap` wins;
+  -- the alias is consulted only when remap is unset.
+  if set_opts.remap == nil and opts.noremap ~= nil then
+    set_opts.remap = not opts.noremap
+  end
+  if set_opts.expr then
+    -- Mirror Neovim's documented expr→replace_keycodes default so zpack owns the contract.
+    if set_opts.replace_keycodes == nil then
+      set_opts.replace_keycodes = true
+    end
+  else
+    -- vim.keymap.set raises when replace_keycodes is set without expr.
+    set_opts.replace_keycodes = nil
+  end
+  vim.keymap.set(opts.mode or { 'n' }, lhs, rhs, set_opts)
 end
 
 ---@param keys zpack.KeySpec|zpack.KeySpec[]|string
@@ -22,7 +36,7 @@ M.apply_keys = function(keys)
 
   for _, key in ipairs(key_list) do
     if key[2] ~= nil then
-      M.map(key[1], key[2], key.remap, key.desc, key.mode, key.nowait)
+      M.map(key[1], key[2], key)
     end
   end
 end

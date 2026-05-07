@@ -47,13 +47,25 @@ M.setup = function(registered_pack_specs)
   -- Create keymaps
   for _, key_info in pairs(key_to_info) do
     local lhs = key_info.key_spec[1]
+    local key_spec = key_info.key_spec
     keymap.map(lhs, function()
       pcall(vim.keymap.del, key_info.split_mode, lhs)
       for _, pack_spec in ipairs(key_info.pack_specs) do
         loader.process_spec(pack_spec)
       end
       vim.api.nvim_feedkeys(vim.keycode(lhs), 'm', false)
-    end, false, key_info.key_spec.desc, key_info.split_mode, false)
+    end, {
+      desc = key_spec.desc,
+      mode = key_info.split_mode,
+      -- Forward user-facing opts so the first (proxy) press matches subsequent
+      -- presses through the real keymap. expr/replace_keycodes are the only
+      -- omissions: the proxy's rhs is a Lua callback returning nil, so making
+      -- it expr would feed nil keys and the plugin would never load.
+      nowait = key_spec.nowait,
+      silent = key_spec.silent,
+      remap = key_spec.remap,
+      noremap = key_spec.noremap,
+    })
   end
 end
 

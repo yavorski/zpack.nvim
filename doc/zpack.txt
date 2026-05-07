@@ -820,6 +820,10 @@ pattern         (string|string[], optional)
       mode = "n"|{"n","v"},           -- Mode(s), default: "n"
       remap = true|false,             -- Allow remapping, default: false
       nowait = true|false,            -- Default: false
+      expr = true|false,              -- RHS is an expression, default: false
+      silent = true|false,            -- Suppress command-line output, default: false
+      noremap = true|false,           -- Inverse of `remap` (lazy.nvim alias)
+      replace_keycodes = true|false,  -- Replace keycodes in expr result; defaults to true when expr is true
     }
 <
 
@@ -843,10 +847,34 @@ mode            (string|string[], optional)
 remap           (boolean, optional)
                 Whether to allow remapping (recursive mapping). When false,
                 the mapping is non-recursive (like noremap). Default: false.
+                Wins over the `noremap` alias when both are set.
 
                                                       *zpack.KeySpec.nowait*
 nowait          (boolean, optional)
                 Whether to use nowait. Default: false.
+
+                                                        *zpack.KeySpec.expr*
+expr            (boolean, optional)
+                Whether the right-hand side is an expression. When true, the
+                returned value of the rhs is used as the keys to feed.
+                Default: false.
+
+                                                      *zpack.KeySpec.silent*
+silent          (boolean, optional)
+                Whether the keymap should be silent (suppress command-line
+                output). Default: false.
+
+                                                     *zpack.KeySpec.noremap*
+noremap         (boolean, optional)
+                lazy.nvim compatibility alias for the inverse of `remap`.
+                Consulted only when `remap` is unset; explicit `remap` always
+                wins. When neither is set, the keymap is non-remappable
+                (matching `remap = false`).
+
+                                            *zpack.KeySpec.replace_keycodes*
+replace_keycodes (boolean, optional)
+                When `expr` is true, replace keycodes in the resulting
+                string. Default: true when `expr` is true; otherwise unused.
 
 ==============================================================================
 11. TIPS & MIGRATION                                *zpack-tips-and-migration*

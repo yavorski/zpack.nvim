@@ -85,6 +85,10 @@ The plugin data object passed to hooks and trigger functions:
   mode = "n"|{"n","v"},           -- Mode(s), default: "n"
   remap = true|false,             -- Allow remapping, default: false
   nowait = true|false,            -- Default: false
+  expr = true|false,              -- RHS is an expression, default: false
+  silent = true|false,            -- Suppress command-line output, default: false
+  noremap = true|false,           -- Inverse of `remap` (lazy.nvim alias)
+  replace_keycodes = true|false,  -- Replace keycodes in expr result; defaults to true when expr is true
 }
 ```
 
