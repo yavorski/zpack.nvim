@@ -593,6 +593,79 @@ return function()
       helpers.cleanup_test_env()
     end)
 
+    -- vim.keymap.set raises if replace_keycodes is set without expr. The opts
+    -- whitelist used to forward replace_keycodes unconditionally, which would
+    -- crash apply_keys for a user spec like { lhs, rhs, replace_keycodes = true }.
+    helpers.test("KeySpec drops replace_keycodes when expr is unset", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/plugin',
+            lazy = false,
+            keys = {
+              { '<leader>trk', function() end, replace_keycodes = true },
+            },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+      local keymaps = vim.api.nvim_get_keymap('n')
+      local found = false
+      for _, map in ipairs(keymaps) do
+        if map.lhs == ' trk' then
+          found = true
+          helpers.assert_equal(map.expr, 0, "expr should not be implied")
+          helpers.assert_equal(map.replace_keycodes, 0, "replace_keycodes should be dropped when expr is unset")
+          break
+        end
+      end
+      helpers.assert_true(found, "Eager KeySpec should create keymap without crashing")
+
+      helpers.cleanup_test_env()
+    end)
+
+    -- Covers the post-trigger apply_keys path (plugin_loader.lua → apply_keys),
+    -- which the eager `lazy = false` tests above don't exercise. After the proxy
+    -- fires and the plugin loads, the real keymap must carry the user's opts.
+    helpers.test("Lazy proxy load handoff: real keymap forwards silent and noremap alias", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({
+        spec = {
+          {
+            'test/plugin',
+            keys = {
+              { '<leader>tlh', function() end, silent = true, noremap = false },
+            },
+          },
+        },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      local function find_map(lhs)
+        for _, map in ipairs(vim.api.nvim_get_keymap('n')) do
+          if map.lhs == lhs then return map end
+        end
+        return nil
+      end
+
+      vim.api.nvim_feedkeys(' tlh', 'mx', false)
+      helpers.flush_pending()
+
+      local real = find_map(' tlh')
+      helpers.assert_not_nil(real, "Real keymap should exist after lazy proxy fires")
+      helpers.assert_equal(real.silent, 1, "Post-load real keymap should forward silent=true")
+      helpers.assert_equal(real.noremap, 0, "Post-load real keymap should reflect noremap=false alias")
+
+      helpers.cleanup_test_env()
+    end)
+
     helpers.test("Lazy proxy load handoff installs the real expr keymap", function()
       helpers.setup_test_env()
 

@@ -48,11 +48,6 @@ M.setup = function(registered_pack_specs)
   for _, key_info in pairs(key_to_info) do
     local lhs = key_info.key_spec[1]
     local key_spec = key_info.key_spec
-    -- lazy.nvim noremap alias: explicit remap wins; otherwise derive from noremap.
-    local remap = key_spec.remap
-    if remap == nil and key_spec.noremap ~= nil then
-      remap = not key_spec.noremap
-    end
     keymap.map(lhs, function()
       pcall(vim.keymap.del, key_info.split_mode, lhs)
       for _, pack_spec in ipairs(key_info.pack_specs) do
@@ -68,7 +63,8 @@ M.setup = function(registered_pack_specs)
       -- it expr would feed nil keys and the plugin would never load.
       nowait = key_spec.nowait,
       silent = key_spec.silent,
-      remap = remap,
+      remap = key_spec.remap,
+      noremap = key_spec.noremap,
     })
   end
 end
