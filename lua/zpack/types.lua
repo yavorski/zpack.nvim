@@ -1,10 +1,16 @@
----@class zpack.KeySpec
+---@class zpack.KeymapOpts
+---@field mode? string|string[]
+---@field desc? string
+---@field remap? boolean
+---@field nowait? boolean
+---@field expr? boolean
+---@field silent? boolean
+---@field replace_keycodes? boolean
+
+---@class zpack.KeySpec : zpack.KeymapOpts
 ---@field [1] string
 ---@field [2]? string|fun()
----@field remap? boolean
----@field desc? string
----@field mode? string|string[]
----@field nowait? boolean
+---@field noremap? boolean
 
 ---@class zpack.EventSpec
 ---@field event string|string[] Event name(s) to trigger on

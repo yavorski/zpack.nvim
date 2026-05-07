@@ -53,7 +53,16 @@ M.setup = function(registered_pack_specs)
         loader.process_spec(pack_spec)
       end
       vim.api.nvim_feedkeys(vim.keycode(lhs), 'm', false)
-    end, false, key_info.key_spec.desc, key_info.split_mode, false)
+    end, {
+      desc = key_info.key_spec.desc,
+      mode = key_info.split_mode,
+      -- Forward latency/UX-affecting opts so the first (proxy) press matches
+      -- subsequent presses through the real keymap. expr/replace_keycodes are
+      -- excluded — the proxy's rhs is a Lua callback returning nil; making it
+      -- expr would feed nil as keys and the plugin would never load.
+      nowait = key_info.key_spec.nowait,
+      silent = key_info.key_spec.silent,
+    })
   end
 end
 
