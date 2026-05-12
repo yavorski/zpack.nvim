@@ -53,7 +53,7 @@ M.setup = function(registered_pack_specs)
       for _, pack_spec in ipairs(key_info.pack_specs) do
         loader.process_spec(pack_spec)
       end
-      vim.api.nvim_feedkeys(vim.keycode(lhs), 'm', false)
+      vim.api.nvim_feedkeys(vim.keycode(lhs), 'i', false)
     end, {
       desc = key_spec.desc,
       mode = key_info.split_mode,
