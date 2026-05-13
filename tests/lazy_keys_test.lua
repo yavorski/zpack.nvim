@@ -704,8 +704,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    -- Proxy must re-feed lhs at the FRONT of typeahead, not append.
-    -- Otherwise multi-key sequences like `vib` break and behave like `vb`.
+    -- Regression for the 'i'-mode feedkeys behavior documented in keys.lua.
     helpers.test("Lazy proxy preserves typeahead order for multi-key sequences", function()
       helpers.setup_test_env()
 
@@ -729,8 +728,8 @@ return function()
       vim.api.nvim_feedkeys('zizb', 'mx', false)
       helpers.flush_pending()
 
-      helpers.assert_equal(order[1], 'i', "re-fed `zi` must run before queued `zb`")
-      helpers.assert_equal(order[2], 'b', "queued `zb` must run after re-fed `zi`")
+      helpers.assert_equal(table.concat(order), 'ib',
+        "expected order 'ib' (re-fed `zi` before queued `zb`)")
 
       pcall(vim.keymap.del, 'n', 'zi')
       pcall(vim.keymap.del, 'n', 'zb')

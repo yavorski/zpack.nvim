@@ -53,6 +53,9 @@ M.setup = function(registered_pack_specs)
       for _, pack_spec in ipairs(key_info.pack_specs) do
         loader.process_spec(pack_spec)
       end
+      -- 'i' inserts at the front of typeahead so queued keys (e.g. trailing 'b'
+      -- in 'vib') run after the re-fed lhs; without 'i' the lhs is appended,
+      -- so the queued keys would run first and 'vib' would degrade to 'vb'.
       vim.api.nvim_feedkeys(vim.keycode(lhs), 'i', false)
     end, {
       desc = key_spec.desc,
