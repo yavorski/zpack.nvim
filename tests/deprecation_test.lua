@@ -62,7 +62,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("invoking legacy :Z* commands emits the cmd_prefix deprecation warning once", function()
+    helpers.test("invoking legacy :Z* commands emits the deprecation warning once", function()
       helpers.setup_test_env()
 
       require('zpack').setup({ spec = { { 'test/plugin-a' } }, defaults = { confirm = false } })
@@ -76,7 +76,7 @@ return function()
 
       local count = 0
       for _, notif in ipairs(_G.test_state.notifications) do
-        if notif.msg:find("DEPRECATED") and notif.msg:find("cmd_prefix") then
+        if notif.msg:find("DEPRECATED") and notif.msg:find("Use :ZPack") then
           count = count + 1
         end
       end

@@ -348,14 +348,11 @@ end
 -- Legacy commands
 ---------------------------------------------------------------------
 
-local LEGACY_COMMANDS = {
-  { suffix = 'Update',  bang = false },
-  { suffix = 'Restore', bang = false },
-  { suffix = 'Clean',   bang = false },
-  { suffix = 'Build',   bang = true  },
-  { suffix = 'Load',    bang = true  },
-  { suffix = 'Delete',  bang = true  },
-}
+-- Command suffixes frozen from the pre-:ZPack era; new subcommands
+-- intentionally do not get legacy aliases. Each legacy command delegates
+-- to the :<cmd_name> dispatcher, so bang/argument validation cannot drift
+-- from it.
+local LEGACY_SUFFIXES = { 'Update', 'Restore', 'Clean', 'Build', 'Load', 'Delete' }
 
 ---@param prefix string Prefix to register legacy commands under (e.g. 'Z'). Empty string registers bare :Update/:Clean/etc.
 ---@param cmd_name string Resolved primary command name, referenced in deprecation messages.
@@ -364,7 +361,7 @@ M.setup_legacy = function(prefix, cmd_name)
 
   -- Empty prefix is a valid back-compat case; otherwise enforce the same rules as cmd_name.
   if prefix ~= '' and not validate_name(prefix) then
-    deprecation.notify_deprecated('cmd_prefix')
+    deprecation.notify_cmd_prefix_deprecated(cmd_name)
     util.schedule_notify(
       ('Invalid cmd_prefix "%s": must start with uppercase letter and contain only letters/digits. Legacy commands not registered.')
         :format(tostring(prefix)),
@@ -373,13 +370,17 @@ M.setup_legacy = function(prefix, cmd_name)
     return
   end
 
-  for _, entry in ipairs(LEGACY_COMMANDS) do
-    local legacy_name = prefix .. entry.suffix
-    local sub_name = entry.suffix:lower()
+  local dispatch = make_dispatcher(cmd_name)
+
+  for _, suffix in ipairs(LEGACY_SUFFIXES) do
+    local legacy_name = prefix .. suffix
+    local sub_name = suffix:lower()
     local sub = Sub[sub_name]
+    -- Registered permissively (nargs '*', bang) so any misuse reaches the
+    -- dispatcher and gets its validation rather than a raw Vim parse error.
     local cmd_opts = {
-      nargs = sub.takes_arg and '?' or 0,
-      bang = entry.bang,
+      nargs = '*',
+      bang = true,
       desc = ('[deprecated] use :%s %s instead'):format(cmd_name, sub_name),
     }
 
@@ -388,12 +389,10 @@ M.setup_legacy = function(prefix, cmd_name)
     end
 
     pcall(vim.api.nvim_create_user_command, legacy_name, function(opts)
-      deprecation.notify_deprecated_once('cmd_prefix')
-      sub.run({
-        arg = opts.args or '',
-        bang = opts.bang,
-        cmd_name = cmd_name,
-      })
+      deprecation.notify_legacy_command(legacy_name, cmd_name, sub_name)
+      local dispatch_args = { sub_name }
+      vim.list_extend(dispatch_args, opts.fargs)
+      dispatch({ fargs = dispatch_args, bang = opts.bang })
     end, cmd_opts)
   end
 end

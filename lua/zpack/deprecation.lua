@@ -32,10 +32,6 @@ M.deprecated = {
     message = "opts.plugins_dir is deprecated. Use { import = 'dir' } in spec instead:",
     replacement = "require('zpack').setup({ { import = 'plugins' } })",
   },
-  cmd_prefix = {
-    message = "opts.cmd_prefix is deprecated. Use opts.cmd_name instead:",
-    replacement = "require('zpack').setup({ cmd_name = 'ZPack' })",
-  },
 }
 
 M.notify_removed = function(key)
@@ -56,12 +52,28 @@ M.notify_deprecated = function(key)
   )
 end
 
-local notified_once = {}
-M.notify_deprecated_once = function(key, dedup_key)
-  dedup_key = dedup_key or key
-  if notified_once[dedup_key] then return end
-  notified_once[dedup_key] = true
-  M.notify_deprecated(key)
+local legacy_command_notified = false
+-- Warns once per session that a legacy :<prefix><Suffix> command is
+-- deprecated in favor of the :<cmd_name> <subcommand> form. Deduped across
+-- all legacy commands, so a session sees the notice at most once.
+M.notify_legacy_command = function(legacy_name, cmd_name, sub_name)
+  if legacy_command_notified then return end
+  legacy_command_notified = true
+  utils.schedule_notify(
+    ("DEPRECATED: :%s is deprecated. Use :%s %s instead."):format(legacy_name, cmd_name, sub_name),
+    vim.log.levels.WARN
+  )
+end
+
+-- Computed because it must name the user's resolved cmd_name. Not deduped:
+-- the only caller is setup_legacy's invalid-prefix branch, which runs once.
+M.notify_cmd_prefix_deprecated = function(cmd_name)
+  utils.schedule_notify(
+    ("DEPRECATED: opts.cmd_prefix is deprecated. The legacy prefixed commands are "
+      .. "deprecated aliases for the :%s subcommands; drop cmd_prefix and use "
+      .. ":%s <subcommand> instead."):format(cmd_name, cmd_name),
+    vim.log.levels.WARN
+  )
 end
 
 return M

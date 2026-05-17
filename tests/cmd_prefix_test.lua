@@ -58,7 +58,7 @@ return function()
       helpers.delete_zpack_commands(nil, 'Z2')
     end)
 
-    helpers.test("invoking a legacy command emits the cmd_prefix deprecation warning", function()
+    helpers.test("invoking a legacy command warns with its :ZPack replacement", function()
       helpers.setup_test_env()
 
       require('zpack').setup({ spec = { { 'test/plugin-a' } }, defaults = { confirm = false } })
@@ -71,12 +71,13 @@ return function()
 
       local found = false
       for _, notif in ipairs(_G.test_state.notifications) do
-        if notif.msg:find("DEPRECATED") and notif.msg:find("cmd_prefix") then
+        if notif.msg:find(":ZClean is deprecated", 1, true)
+          and notif.msg:find("Use :ZPack clean", 1, true) then
           found = true
           break
         end
       end
-      helpers.assert_true(found, "invoking a legacy command should emit the cmd_prefix deprecation warning")
+      helpers.assert_true(found, "invoking :ZClean should warn to use :ZPack clean")
 
       helpers.cleanup_test_env()
     end)
@@ -105,7 +106,61 @@ return function()
       helpers.delete_zpack_commands('MyPack')
     end)
 
-    helpers.test("invalid cmd_prefix emits an error and registers no legacy commands", function()
+    helpers.test("legacy command with extra arguments warns like the dispatcher", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({ spec = { { 'test/plugin-a' } }, defaults = { confirm = false } })
+
+      helpers.flush_pending()
+      _G.test_state.notifications = {}
+
+      vim.cmd('ZUpdate plugin-a extra-arg')
+      helpers.flush_pending()
+
+      helpers.assert_equal(#_G.test_state.vim_pack_update_calls, 0, "update must not run when given extra arguments")
+
+      local found_warning = false
+      local misleading_error = false
+      for _, notif in ipairs(_G.test_state.notifications) do
+        if notif.msg:find('at most one argument') and notif.level == vim.log.levels.WARN then
+          found_warning = true
+        end
+        if notif.msg:find('not found in spec') then
+          misleading_error = true
+        end
+      end
+      helpers.assert_true(found_warning, "legacy :ZUpdate should warn about too many arguments")
+      helpers.assert_false(misleading_error, 'legacy :ZUpdate must not emit the misleading joined-args error')
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("legacy clean rejects positional arguments without a raw Vim error", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({ spec = { { 'test/plugin-a' } }, defaults = { confirm = false } })
+
+      helpers.flush_pending()
+      _G.test_state.notifications = {}
+
+      local ok = pcall(vim.cmd, 'ZClean junk')
+      helpers.flush_pending()
+
+      helpers.assert_true(ok, "legacy :ZClean junk must not raise a raw Vim parse error")
+
+      local found_warning = false
+      for _, notif in ipairs(_G.test_state.notifications) do
+        if notif.msg:find('no arguments') and notif.level == vim.log.levels.WARN then
+          found_warning = true
+          break
+        end
+      end
+      helpers.assert_true(found_warning, "legacy :ZClean should warn that clean accepts no arguments")
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("invalid cmd_prefix emits an error plus a deprecation notice and registers no legacy commands", function()
       helpers.setup_test_env()
 
       require('zpack').setup({ spec = {}, defaults = { confirm = false }, cmd_prefix = 'My-Pack' })
@@ -118,13 +173,18 @@ return function()
       helpers.assert_not_nil(cmds['ZPack'], "the primary :ZPack command should still be registered")
 
       local found_error = false
+      local found_deprecation = false
       for _, notif in ipairs(_G.test_state.notifications) do
         if notif.msg:find('Invalid cmd_prefix') and notif.level == vim.log.levels.ERROR then
           found_error = true
-          break
+        end
+        if notif.msg:find('DEPRECATED') and notif.msg:find('cmd_prefix', 1, true)
+          and notif.level == vim.log.levels.WARN then
+          found_deprecation = true
         end
       end
       helpers.assert_true(found_error, "an invalid cmd_prefix should emit an error notification")
+      helpers.assert_true(found_deprecation, "an invalid cmd_prefix should also emit the cmd_prefix deprecation notice")
 
       helpers.cleanup_test_env()
     end)
