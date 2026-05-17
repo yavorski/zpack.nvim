@@ -16,6 +16,7 @@ local test_modules = {
   'plugin_data_test',
   'cmd_name_test',
   'cmd_prefix_test',
+  'dispatch_test',
   'version_test',
   'deprecation_test',
   'import_test',

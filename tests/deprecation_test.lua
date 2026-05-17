@@ -62,7 +62,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("invoking a legacy :Z* command emits the cmd_prefix deprecation warning once", function()
+    helpers.test("invoking legacy :Z* commands emits the cmd_prefix deprecation warning once", function()
       helpers.setup_test_env()
 
       require('zpack').setup({ spec = { { 'test/plugin-a' } }, defaults = { confirm = false } })
@@ -71,7 +71,7 @@ return function()
       _G.test_state.notifications = {}
 
       vim.cmd('ZClean')
-      vim.cmd('ZClean') -- second invocation must NOT re-emit the warning
+      vim.cmd('ZUpdate') -- a *different* legacy command must NOT re-emit the warning
       helpers.flush_pending()
 
       local count = 0
@@ -80,7 +80,7 @@ return function()
           count = count + 1
         end
       end
-      helpers.assert_equal(count, 1, "deprecation warning must fire exactly once across repeated invocations")
+      helpers.assert_equal(count, 1, "deprecation warning must fire exactly once across all legacy commands")
 
       helpers.cleanup_test_env()
     end)

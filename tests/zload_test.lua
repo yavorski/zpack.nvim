@@ -2,17 +2,6 @@ local helpers = require('helpers')
 
 return function()
   helpers.describe("ZPack load", function()
-    helpers.test("ZPack command is created with default name", function()
-      helpers.setup_test_env()
-
-      require('zpack').setup({ spec = {}, defaults = { confirm = false } })
-
-      local cmds = vim.api.nvim_get_commands({})
-      helpers.assert_not_nil(cmds['ZPack'], "ZPack command should exist")
-
-      helpers.cleanup_test_env()
-    end)
-
     helpers.test("lazy plugin is tracked as unloaded", function()
       helpers.setup_test_env()
       local state = require('zpack.state')

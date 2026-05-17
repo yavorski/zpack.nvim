@@ -8,7 +8,7 @@ function M.create_tests(config)
   local error_prefix = config.error_prefix
 
   return function()
-    helpers.describe(command .. " Command", function()
+    helpers.describe(command, function()
       helpers.test(command .. " without args calls vim.pack.update correctly", function()
         helpers.setup_test_env()
 

@@ -5,7 +5,7 @@ local hooks = require('zpack.hooks')
 local M = {}
 
 local validate_name = function(name)
-  if not name or name == '' then
+  if type(name) ~= 'string' or name == '' then
     return false
   end
   if not name:match('^%u[%a%d]*$') then
@@ -90,6 +90,7 @@ end
 local Sub = {}
 
 Sub.update = {
+  takes_arg = true,
   run = function(ctx)
     run_pack_update(ctx.arg, nil, 'Update failed')
   end,
@@ -99,6 +100,7 @@ Sub.update = {
 }
 
 Sub.restore = {
+  takes_arg = true,
   run = function(ctx)
     run_pack_update(ctx.arg, { target = 'lockfile' }, ('Restore failed (have you run :%s update?)'):format(ctx.cmd_name))
   end,
@@ -114,6 +116,8 @@ Sub.clean = {
 }
 
 Sub.build = {
+  bang = true,
+  takes_arg = true,
   run = function(ctx)
     local plugin_name = ctx.arg
     if plugin_name == '' then
@@ -150,6 +154,8 @@ Sub.build = {
 }
 
 Sub.load = {
+  bang = true,
+  takes_arg = true,
   run = function(ctx)
     local plugin_name = ctx.arg
     if plugin_name == '' then
@@ -202,6 +208,8 @@ Sub.load = {
 }
 
 Sub.delete = {
+  bang = true,
+  takes_arg = true,
   run = function(ctx)
     local plugin_name = ctx.arg
     if plugin_name == '' then
@@ -245,6 +253,18 @@ Sub.delete = {
 -- Ordered list used for completion and usage messages.
 local SUB_ORDER = { 'update', 'restore', 'clean', 'build', 'load', 'delete' }
 
+-- Guard against SUB_ORDER drifting out of sync with the Sub table.
+do
+  local listed = {}
+  for _, name in ipairs(SUB_ORDER) do
+    assert(Sub[name], 'SUB_ORDER lists unknown subcommand: ' .. name)
+    listed[name] = true
+  end
+  for name in pairs(Sub) do
+    assert(listed[name], 'Sub defines a subcommand missing from SUB_ORDER: ' .. name)
+  end
+end
+
 ---@param cmd_name string
 ---@return function
 local make_dispatcher = function(cmd_name)
@@ -262,13 +282,23 @@ local make_dispatcher = function(cmd_name)
       return
     end
 
-    local arg = ''
-    if fargs[2] then
-      arg = table.concat(fargs, ' ', 2)
+    if opts.bang and not sub.bang then
+      util.schedule_notify(('Subcommand "%s" does not accept "!"'):format(subname), vim.log.levels.WARN)
+      return
+    end
+
+    local max_args = sub.takes_arg and 1 or 0
+    if #fargs - 1 > max_args then
+      util.schedule_notify(
+        ('Subcommand "%s" accepts %s'):format(
+          subname, max_args == 0 and 'no arguments' or 'at most one argument'),
+        vim.log.levels.WARN
+      )
+      return
     end
 
     sub.run({
-      arg = arg,
+      arg = fargs[2] or '',
       bang = opts.bang,
       cmd_name = cmd_name,
     })
@@ -277,8 +307,10 @@ end
 
 ---@return string[]
 local complete_command = function(arg_lead, cmd_line, _cursor_pos)
-  -- Strip leading "<cmd> " (or "<cmd>! ") from cmd_line for parsing.
-  local after_cmd = cmd_line:match('^%S+%s+(.*)$') or ''
+  -- Strip the leading command word and optional bang so the remainder is
+  -- "<subcommand> [args]". The command word runs up to the first whitespace
+  -- or bang; "[^%s!]" rather than "%S" stops ":ZPack!load" from eating "load".
+  local after_cmd = (cmd_line:gsub('^%s*[^%s!]*!?%s*', '', 1))
   local parts = vim.split(after_cmd, '%s+', { trimempty = false })
 
   -- Completing the subcommand itself
@@ -326,32 +358,41 @@ local LEGACY_COMMANDS = {
 }
 
 ---@param prefix string Prefix to register legacy commands under (e.g. 'Z'). Empty string registers bare :Update/:Clean/etc.
-M.setup_legacy = function(prefix)
-  -- Empty prefix is a valid back-compat case; otherwise enforce the same rules as cmd_name.
-  if prefix ~= '' and not validate_name(prefix) then return end
-
+---@param cmd_name string Resolved primary command name, referenced in deprecation messages.
+M.setup_legacy = function(prefix, cmd_name)
   local deprecation = require('zpack.deprecation')
 
+  -- Empty prefix is a valid back-compat case; otherwise enforce the same rules as cmd_name.
+  if prefix ~= '' and not validate_name(prefix) then
+    deprecation.notify_deprecated('cmd_prefix')
+    util.schedule_notify(
+      ('Invalid cmd_prefix "%s": must start with uppercase letter and contain only letters/digits. Legacy commands not registered.')
+        :format(tostring(prefix)),
+      vim.log.levels.ERROR
+    )
+    return
+  end
+
   for _, entry in ipairs(LEGACY_COMMANDS) do
-    local cmd_name = prefix .. entry.suffix
+    local legacy_name = prefix .. entry.suffix
     local sub_name = entry.suffix:lower()
     local sub = Sub[sub_name]
     local cmd_opts = {
-      nargs = sub.complete and '?' or 0,
+      nargs = sub.takes_arg and '?' or 0,
       bang = entry.bang,
-      desc = ('[deprecated] use :ZPack %s instead'):format(sub_name),
+      desc = ('[deprecated] use :%s %s instead'):format(cmd_name, sub_name),
     }
 
     if sub.complete then
       cmd_opts.complete = function(arg_lead) return sub.complete(arg_lead) end
     end
 
-    pcall(vim.api.nvim_create_user_command, cmd_name, function(opts)
-      deprecation.notify_deprecated_once('cmd_prefix', 'legacy_cmd:' .. cmd_name)
+    pcall(vim.api.nvim_create_user_command, legacy_name, function(opts)
+      deprecation.notify_deprecated_once('cmd_prefix')
       sub.run({
         arg = opts.args or '',
         bang = opts.bang,
-        cmd_name = 'ZPack',
+        cmd_name = cmd_name,
       })
     end, cmd_opts)
   end

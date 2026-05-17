@@ -158,7 +158,7 @@ M.setup = function(opts)
   process_all(ctx)
 
   require('zpack.commands').setup(config.cmd_name)
-  require('zpack.commands').setup_legacy(legacy_prefix)
+  require('zpack.commands').setup_legacy(legacy_prefix, config.cmd_name)
 end
 
 ---@deprecated Use setup({ spec = { ... } }) instead
