@@ -66,14 +66,15 @@ return {
 
 #### Commands
 
-zpack provides the following commands (default prefix: `Z`, customizable via `cmd_prefix` option):
+zpack provides a single user command, `:ZPack`, with subcommands. The command
+name is configurable via the `cmd_name` option (default: `ZPack`).
 
-- `:ZUpdate [plugin]` - Update all plugins, or a specific plugin if provided (supports tab completion). See `:h vim.pack.update()`
-- `:ZRestore [plugin]` - Restore all plugins, or a specific plugin, to the lockfile state (supports tab completion). Requires a lockfile to exist (created automatically by `:ZUpdate`). See `:h vim.pack.update()`
-- `:ZClean` - Remove plugins that are no longer in your spec
-- `:ZBuild[!] [plugin]` - Run build hook for a specific plugin, or all plugins with `!` (supports tab completion)
-- `:ZLoad[!] [plugin]` - Load a specific unloaded plugin, or all unloaded plugins with `!` (supports tab completion)
-- `:ZDelete[!] [plugin]` - Remove a specific plugin, or all plugins with `!` (supports tab completion)
+- `:ZPack update [plugin]` - Update all plugins, or a specific plugin if provided (supports tab completion). See `:h vim.pack.update()`
+- `:ZPack restore [plugin]` - Restore all plugins, or a specific plugin, to the lockfile state (supports tab completion). Requires a lockfile to exist (created automatically by `:ZPack update`). See `:h vim.pack.update()`
+- `:ZPack clean` - Remove plugins that are no longer in your spec
+- `:ZPack[!] build [plugin]` - Run build hook for a specific plugin, or all plugins with `!` (supports tab completion)
+- `:ZPack[!] load [plugin]` - Load a specific unloaded plugin, or all unloaded plugins with `!` (supports tab completion)
+- `:ZPack[!] delete [plugin]` - Remove a specific plugin, or all plugins with `!` (supports tab completion)
   - Deleting active plugins in your spec can result in errors in your current session. Restart Neovim to re-install them.
 
 
@@ -89,7 +90,7 @@ require('zpack').setup({
   performance = {
     vim_loader = true,       -- enables vim.loader for faster startup (default: true)
   },
-  cmd_prefix = 'Z',          -- command prefix: :ZUpdate, :ZClean, etc. (default: 'Z')
+  cmd_name = 'ZPack',        -- name of the user command (default: 'ZPack'). Use as: :ZPack update, :ZPack clean, etc.
 })
 ```
 

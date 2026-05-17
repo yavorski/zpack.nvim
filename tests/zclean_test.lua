@@ -1,8 +1,8 @@
 local helpers = require('helpers')
 
 return function()
-  helpers.describe("ZClean Command", function()
-    helpers.test("ZClean detects orphan plugins not in spec", function()
+  helpers.describe("ZPack clean", function()
+    helpers.test("clean detects orphan plugins not in spec", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -20,7 +20,7 @@ return function()
         name = 'orphan-plugin',
       }
 
-      vim.cmd('ZClean')
+      vim.cmd('ZPack clean')
       helpers.flush_pending()
 
       helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 1, "vim.pack.del should be called")
@@ -31,7 +31,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZClean does not delete plugins in spec", function()
+    helpers.test("clean does not delete plugins in spec", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -44,7 +44,7 @@ return function()
 
       helpers.flush_pending()
 
-      vim.cmd('ZClean')
+      vim.cmd('ZPack clean')
       helpers.flush_pending()
 
       helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 0, "vim.pack.del should not be called")
@@ -61,7 +61,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZClean detects multiple orphan plugins", function()
+    helpers.test("clean detects multiple orphan plugins", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -82,7 +82,7 @@ return function()
         name = 'orphan-2',
       }
 
-      vim.cmd('ZClean')
+      vim.cmd('ZPack clean')
       helpers.flush_pending()
 
       helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 1, "vim.pack.del should be called once")

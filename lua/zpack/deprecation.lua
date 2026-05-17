@@ -32,6 +32,10 @@ M.deprecated = {
     message = "opts.plugins_dir is deprecated. Use { import = 'dir' } in spec instead:",
     replacement = "require('zpack').setup({ { import = 'plugins' } })",
   },
+  cmd_prefix = {
+    message = "opts.cmd_prefix is deprecated. Use opts.cmd_name instead:",
+    replacement = "require('zpack').setup({ cmd_name = 'ZPack' })",
+  },
 }
 
 M.notify_removed = function(key)
@@ -50,6 +54,14 @@ M.notify_deprecated = function(key)
     ("DEPRECATED: %s\n\n%s"):format(entry.message, entry.replacement),
     vim.log.levels.WARN
   )
+end
+
+local notified_once = {}
+M.notify_deprecated_once = function(key, dedup_key)
+  dedup_key = dedup_key or key
+  if notified_once[dedup_key] then return end
+  notified_once[dedup_key] = true
+  M.notify_deprecated(key)
 end
 
 return M

@@ -48,7 +48,7 @@ end
 
 ---@class zpack.Config
 ---@field spec? zpack.Spec[]
----@field cmd_prefix? string
+---@field cmd_name? string Name of the single user command (default: 'ZPack')
 ---@field defaults? zpack.Config.Defaults
 ---@field performance? zpack.Config.Performance
 ---@field profiling? zpack.Config.Profiling
@@ -57,7 +57,7 @@ end
 ---@field disable_vim_loader? boolean @deprecated Use performance.vim_loader instead
 
 local config = {
-  cmd_prefix = 'Z',
+  cmd_name = 'ZPack',
   defaults = { confirm = true },
   performance = { vim_loader = true },
   profiling = { loader = false, require = false },
@@ -101,8 +101,8 @@ M.setup = function(opts)
   opts = opts or {}
   local deprecation = require('zpack.deprecation')
 
-  if opts.cmd_prefix ~= nil then
-    config.cmd_prefix = opts.cmd_prefix
+  if opts.cmd_name ~= nil then
+    config.cmd_name = opts.cmd_name
   end
 
   if opts.defaults ~= nil then
@@ -137,6 +137,9 @@ M.setup = function(opts)
     deprecation.notify_removed('auto_import')
   end
 
+  -- `cmd_prefix` is deprecated but will still work for a while
+  local legacy_prefix = opts.cmd_prefix ~= nil and opts.cmd_prefix or 'Z'
+
   local ctx = create_context({ confirm = config.defaults.confirm, defaults = config.defaults })
   local import = require('zpack.import')
 
@@ -154,7 +157,8 @@ M.setup = function(opts)
 
   process_all(ctx)
 
-  require('zpack.commands').setup(config.cmd_prefix)
+  require('zpack.commands').setup(config.cmd_name)
+  require('zpack.commands').setup_legacy(legacy_prefix)
 end
 
 ---@deprecated Use setup({ spec = { ... } }) instead

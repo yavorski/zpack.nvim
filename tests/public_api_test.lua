@@ -350,7 +350,7 @@ return function()
       -- Before lazy-load, alpha is pending.
       helpers.assert_equal(require('zpack').get_plugin('alpha').status, 'pending', "lazy plugin starts pending")
 
-      pcall(vim.cmd, 'ZLoad! alpha')
+      pcall(vim.cmd, 'ZPack! load alpha')
 
       helpers.assert_equal(observed_status, 'loading', "get_plugin inside config must see status=loading")
       helpers.assert_equal(require('zpack').get_plugin('alpha').status, 'loaded', "status should be loaded after load completes")
@@ -564,9 +564,9 @@ return function()
         "cond=false plugin starts disabled"
       )
 
-      -- `:ZLoad! alpha` force-loads past the cond gate (used e.g. when a
+      -- `:ZPack! load alpha` force-loads past the cond gate (used e.g. when a
       -- consumer deliberately wants the plugin loaded despite its cond).
-      pcall(vim.cmd, 'ZLoad! alpha')
+      pcall(vim.cmd, 'ZPack! load alpha')
 
       helpers.assert_equal(
         require('zpack').get_plugin('alpha').status, 'loaded',

@@ -1,8 +1,8 @@
 local helpers = require('helpers')
 
 return function()
-  helpers.describe("ZDelete Command", function()
-    helpers.test("ZDelete single plugin uses force=true", function()
+  helpers.describe("ZPack delete", function()
+    helpers.test("delete single plugin uses force=true", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -15,7 +15,7 @@ return function()
 
       helpers.flush_pending()
 
-      vim.cmd('ZDelete plugin-a')
+      vim.cmd('ZPack delete plugin-a')
       helpers.flush_pending()
 
       helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 1, "vim.pack.del should be called once")
@@ -27,7 +27,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZDelete! all plugins uses force=true", function()
+    helpers.test("delete! all plugins uses force=true", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -41,7 +41,7 @@ return function()
 
       helpers.flush_pending()
 
-      vim.cmd('ZDelete!')
+      vim.cmd('ZPack! delete')
       helpers.flush_pending()
 
       helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 1, "vim.pack.del should be called once")
@@ -54,7 +54,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZDelete without bang and no arg shows warning", function()
+    helpers.test("delete without bang and no arg shows warning", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -66,7 +66,7 @@ return function()
 
       helpers.flush_pending()
 
-      vim.cmd('ZDelete')
+      vim.cmd('ZPack delete')
       helpers.flush_pending()
 
       helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 0, "vim.pack.del should not be called")
@@ -74,7 +74,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZDelete clears dependency graph entries for deleted plugin", function()
+    helpers.test("delete clears dependency graph entries for deleted plugin", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -95,7 +95,7 @@ return function()
       helpers.assert_not_nil(state.dependency_graph[src_b], "plugin-b should have dependency graph entry")
       helpers.assert_not_nil(state.reverse_dependency_graph[src_b], "plugin-b should have reverse dependency graph entry")
 
-      vim.cmd('ZDelete plugin-b')
+      vim.cmd('ZPack delete plugin-b')
       helpers.flush_pending()
 
       helpers.assert_nil(state.dependency_graph[src_b], "plugin-b dependency graph entry should be cleared")
@@ -114,7 +114,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZDelete clears src_to_pack_spec for deleted plugin", function()
+    helpers.test("delete clears src_to_pack_spec for deleted plugin", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -132,7 +132,7 @@ return function()
       local src_b = 'https://github.com/test/plugin-b'
       helpers.assert_not_nil(state.src_to_pack_spec[src_a], "plugin-a should have src_to_pack_spec entry")
 
-      vim.cmd('ZDelete plugin-a')
+      vim.cmd('ZPack delete plugin-a')
       helpers.flush_pending()
 
       helpers.assert_nil(state.src_to_pack_spec[src_a], "plugin-a src_to_pack_spec entry should be cleared")
@@ -141,7 +141,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZDelete non-existent plugin does not call vim.pack.del", function()
+    helpers.test("delete non-existent plugin does not call vim.pack.del", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -153,7 +153,7 @@ return function()
 
       helpers.flush_pending()
 
-      vim.cmd('ZDelete non-existent-plugin')
+      vim.cmd('ZPack delete non-existent-plugin')
       helpers.flush_pending()
 
       helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 0, "vim.pack.del should not be called for non-existent plugin")
