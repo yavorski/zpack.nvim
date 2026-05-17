@@ -1,14 +1,14 @@
 local helpers = require('helpers')
 
 return function()
-  helpers.describe("ZLoad Command", function()
-    helpers.test("ZLoad command is created with default prefix", function()
+  helpers.describe("ZPack load", function()
+    helpers.test("ZPack command is created with default name", function()
       helpers.setup_test_env()
 
       require('zpack').setup({ spec = {}, defaults = { confirm = false } })
 
       local cmds = vim.api.nvim_get_commands({})
-      helpers.assert_not_nil(cmds['ZLoad'], "ZLoad command should exist")
+      helpers.assert_not_nil(cmds['ZPack'], "ZPack command should exist")
 
       helpers.cleanup_test_env()
     end)
@@ -90,7 +90,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZLoad without bang shows warning", function()
+    helpers.test("load without bang shows warning", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -106,22 +106,22 @@ return function()
       helpers.flush_pending()
       _G.test_state.notifications = {}
 
-      pcall(vim.cmd, 'ZLoad')
+      pcall(vim.cmd, 'ZPack load')
       helpers.flush_pending()
 
       local found_warning = false
       for _, notif in ipairs(_G.test_state.notifications) do
-        if notif.msg:find('ZLoad!') and notif.level == vim.log.levels.WARN then
+        if notif.msg:find('load!') and notif.level == vim.log.levels.WARN then
           found_warning = true
           break
         end
       end
-      helpers.assert_true(found_warning, "Should show warning about using ZLoad!")
+      helpers.assert_true(found_warning, "Should show warning about using load!")
 
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZLoad! loads all unloaded plugins", function()
+    helpers.test("load! loads all unloaded plugins", function()
       helpers.setup_test_env()
       local state = require('zpack.state')
       local config_called = {}
@@ -145,7 +145,7 @@ return function()
       helpers.flush_pending()
       helpers.assert_equal(vim.tbl_count(state.unloaded_plugin_names), 2, "Should have 2 unloaded plugins")
 
-      vim.cmd('ZLoad!')
+      vim.cmd('ZPack! load')
       helpers.flush_pending()
 
       helpers.assert_equal(vim.tbl_count(state.unloaded_plugin_names), 0, "Should have 0 unloaded plugins")
@@ -155,7 +155,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZLoad! with no unloaded plugins shows info message", function()
+    helpers.test("load! with no unloaded plugins shows info message", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -171,7 +171,7 @@ return function()
       helpers.flush_pending()
       _G.test_state.notifications = {}
 
-      vim.cmd('ZLoad!')
+      vim.cmd('ZPack! load')
       helpers.flush_pending()
 
       local found_info = false
@@ -186,7 +186,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("ZLoad already loaded plugin shows info message", function()
+    helpers.test("load already-loaded plugin shows info message", function()
       helpers.setup_test_env()
 
       require('zpack').setup({
@@ -202,7 +202,7 @@ return function()
       helpers.flush_pending()
       _G.test_state.notifications = {}
 
-      pcall(vim.cmd, 'ZLoad startup-plugin')
+      pcall(vim.cmd, 'ZPack load startup-plugin')
       helpers.flush_pending()
 
       local found_info = false

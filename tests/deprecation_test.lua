@@ -62,6 +62,50 @@ return function()
       helpers.cleanup_test_env()
     end)
 
+    helpers.test("invoking a legacy :Z* command emits the cmd_prefix deprecation warning once", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({ spec = { { 'test/plugin-a' } }, defaults = { confirm = false } })
+
+      helpers.flush_pending()
+      _G.test_state.notifications = {}
+
+      vim.cmd('ZClean')
+      vim.cmd('ZClean') -- second invocation must NOT re-emit the warning
+      helpers.flush_pending()
+
+      local count = 0
+      for _, notif in ipairs(_G.test_state.notifications) do
+        if notif.msg:find("DEPRECATED") and notif.msg:find("cmd_prefix") then
+          count = count + 1
+        end
+      end
+      helpers.assert_equal(count, 1, "deprecation warning must fire exactly once across repeated invocations")
+
+      helpers.cleanup_test_env()
+    end)
+
+    helpers.test("legacy :ZDelete delegates to the new delete subcommand with force=true", function()
+      helpers.setup_test_env()
+
+      require('zpack').setup({
+        spec = { { 'test/plugin-a' }, { 'test/plugin-b' } },
+        defaults = { confirm = false },
+      })
+
+      helpers.flush_pending()
+
+      vim.cmd('ZDelete plugin-a')
+      helpers.flush_pending()
+
+      helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 1, "vim.pack.del must be called by legacy shim")
+      local call = _G.test_state.vim_pack_del_calls[1]
+      helpers.assert_true(call.opts.force, "legacy :ZDelete must propagate force=true to Sub.delete")
+      helpers.assert_table_contains(call.names, 'plugin-a', "legacy :ZDelete plugin-a must target plugin-a")
+
+      helpers.cleanup_test_env()
+    end)
+
     helpers.test("deprecated options still register plugins", function()
       helpers.setup_test_env()
       local state = require('zpack.state')

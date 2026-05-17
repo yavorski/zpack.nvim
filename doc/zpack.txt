@@ -86,33 +86,35 @@ Each file should return a spec or list of specs (see |zpack-examples| or
 ------------------------------------------------------------------------------
 4.2 COMMANDS                                                  *zpack-commands*
 
-zpack provides the following commands (default prefix: `Z`, customizable via
-|zpack-setup-cmd_prefix|):
+zpack provides a single user command, `:ZPack`, with subcommands. The
+command name is configurable via |zpack-setup-cmd_name| (default: `ZPack`).
 
-                                                                    *:ZUpdate*
-:ZUpdate [plugin]
+                                                                      *:ZPack*
+:ZPack {subcommand} [args]
+                Dispatches to one of the subcommands listed below. Subcommand
+                names support tab completion, as do plugin-name arguments
+                where applicable. The bang form `:ZPack!` applies to the
+                subcommands that accept it (`build`, `load`, `delete`).
+
+:ZPack update [plugin]
                 Update all plugins that are currently in your spec, or update
                 a specific plugin if a name is provided. Supports tab
                 completion of installed plugin names. See |vim.pack.update()|.
 
-                                                                   *:ZRestore*
-:ZRestore [plugin]
+:ZPack restore [plugin]
                 Restore all plugins or a specific plugin to the state
-                recorded in the lockfile. This calls
-                |vim.pack.update()| with `target = 'lockfile'`. Useful
-                for synchronizing plugins across machines or reverting
-                after an update. Requires a lockfile to exist (created
-                automatically by |:ZUpdate|). Displays an error if no
-                lockfile exists or the restore otherwise fails.
+                recorded in the lockfile. This calls |vim.pack.update()| with
+                `target = 'lockfile'`. Useful for synchronizing plugins across
+                machines or reverting after an update. Requires a lockfile to
+                exist (created automatically by `:ZPack update`). Displays an
+                error if no lockfile exists or the restore otherwise fails.
                 Supports tab completion of registered plugin names.
 
-                                                                     *:ZClean*
-:ZClean         Remove plugins that are no longer in your spec. This compares
+:ZPack clean    Remove plugins that are no longer in your spec. This compares
                 installed plugins with your current spec and deletes any that
                 are not referenced.
 
-                                                                     *:ZBuild*
-:ZBuild[!] [plugin]
+:ZPack[!] build [plugin]
                 Run build hook for a specific plugin by name, or run build
                 hooks for all plugins when called with ! and no plugin name.
                 Without the !, attempting to build all will show a warning
@@ -120,21 +122,19 @@ zpack provides the following commands (default prefix: `Z`, customizable via
                 hooks. This is useful for manually rebuilding plugins without
                 needing to update them.
 
-                                                                      *:ZLoad*
-:ZLoad[!] [plugin]
+:ZPack[!] load [plugin]
                 Load a specific unloaded plugin by name, or load all unloaded
                 plugins when called with ! and no plugin name. Without the !,
                 attempting to load all will show a warning message. Supports
                 tab completion of unloaded plugin names.
 
-                                                                    *:ZDelete*
-:ZDelete[!] [plugin]
+:ZPack[!] delete [plugin]
                 Remove a specific plugin by name, or remove all installed
                 plugins when called with ! and no plugin name. Without the !,
-                attempting to delete all will show a warning message. Supports
-                tab completion of installed plugin names. Deleting active
-                plugins in your spec can result in errors in your current
-                session. Restart Neovim to re-install them.
+                attempting to delete all will show a warning message.
+                Supports tab completion of installed plugin names. Deleting
+                active plugins in your spec can result in errors in your
+                current session. Restart Neovim to re-install them.
 
 ------------------------------------------------------------------------------
 4.3 CONFIGURATIONS                                     *zpack-configurations*
@@ -150,7 +150,7 @@ zpack provides the following commands (default prefix: `Z`, customizable via
       performance = {
         vim_loader = true,       -- enables vim.loader for faster startup (default: true)
       },
-      cmd_prefix = 'Z',          -- :ZUpdate, :ZClean, etc. (default: 'Z')
+      cmd_name = 'ZPack',        -- :ZPack update, :ZPack clean, etc. (default: 'ZPack')
     })
 <
 Plugin-level settings always take precedence over `defaults`.
@@ -209,16 +209,14 @@ spec            (table, optional)
                 })
 <
 
-                                                     *zpack-setup-cmd_prefix*
-cmd_prefix      (string, optional)
-                Prefix for user commands. Change this if the default
-                commands conflict with other plugins. Default: `'Z'`
+                                                       *zpack-setup-cmd_name*
+cmd_name        (string, optional)
+                Name of the single user command. Change this if the default
+                conflicts with another plugin. Must start with an uppercase
+                letter and contain only letters and digits. Default: `'ZPack'`
                 Examples:
-                  - `'Z'` creates `:ZUpdate`, `:ZClean`, `:ZBuild`, `:ZLoad`,
-                    `:ZDelete`
-                  - `'Pack'` creates `:PackUpdate`, `:PackClean`, etc.
-                  - `''` creates `:Update`, `:Clean`, `:Build`, `:Load`,
-                    `:Delete`
+                  - `'ZPack'` creates `:ZPack update`, `:ZPack clean`, etc.
+                  - `'MyPack'`  creates `:MyPack update`, `:MyPack clean`, etc.
 
 defaults        (table, optional)
                 Default values that apply to all plugins. Plugin-level

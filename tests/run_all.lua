@@ -14,6 +14,7 @@ local test_modules = {
   'priority_test',
   'conditional_test',
   'plugin_data_test',
+  'cmd_name_test',
   'cmd_prefix_test',
   'version_test',
   'deprecation_test',

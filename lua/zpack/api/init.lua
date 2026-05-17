@@ -30,7 +30,7 @@ local function derive_status(entry)
   end
   -- load_status wins over cond_result: a cond=false plugin can still end up
   -- loaded if it is pulled in as a required dependency or force-loaded via
-  -- `:ZLoad!`. Reporting "disabled" for an actually-loaded plugin would
+  -- `:ZPack! load`. Reporting "disabled" for an actually-loaded plugin would
   -- break UIs that key off status.
   if entry.load_status == 'loaded' or entry.load_status == 'loading' then
     return entry.load_status

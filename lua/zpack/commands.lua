@@ -4,20 +4,11 @@ local hooks = require('zpack.hooks')
 
 local M = {}
 
-local validate_prefix = function(prefix)
-  if prefix == '' then
-    return true
-  end
-  if not prefix:match('^%u[%a%d]*$') then
+local validate_name = function(name)
+  if not name or name == '' then
     return false
   end
-  return true
-end
-
-local create_command = function(name, fn, opts)
-  local ok, err = pcall(vim.api.nvim_create_user_command, name, fn, opts)
-  if not ok then
-    util.schedule_notify(('Failed to create command %s: %s'):format(name, err), vim.log.levels.ERROR)
+  if not name:match('^%u[%a%d]*$') then
     return false
   end
   return true
@@ -92,48 +83,42 @@ M.clean_unused = function()
   vim.pack.del(to_delete)
 end
 
----@param prefix string
-M.setup = function(prefix)
-  if not validate_prefix(prefix) then
-    util.schedule_notify(
-      ('Invalid cmd_prefix "%s": must be empty or start with uppercase letter and contain only letters/digits'):format(
-        prefix),
-      vim.log.levels.ERROR
-    )
-    return
-  end
+---------------------------------------------------------------------
+-- Subcommand handlers
+---------------------------------------------------------------------
 
-  local complete_registered = function(arg_lead)
+local Sub = {}
+
+Sub.update = {
+  run = function(ctx)
+    run_pack_update(ctx.arg, nil, 'Update failed')
+  end,
+  complete = function(arg_lead)
     return filter_completions(state.registered_plugin_names, arg_lead)
-  end
+  end,
+}
 
-  create_command(prefix .. 'Update', function(opts)
-    run_pack_update(opts.args, nil, 'Update failed')
-  end, {
-    nargs = '?',
-    desc = 'Update all plugins or a specific plugin',
-    complete = complete_registered,
-  })
+Sub.restore = {
+  run = function(ctx)
+    run_pack_update(ctx.arg, { target = 'lockfile' }, ('Restore failed (have you run :%s update?)'):format(ctx.cmd_name))
+  end,
+  complete = function(arg_lead)
+    return filter_completions(state.registered_plugin_names, arg_lead)
+  end,
+}
 
-  create_command(prefix .. 'Restore', function(opts)
-    run_pack_update(opts.args, { target = 'lockfile' }, 'Restore failed (have you run :' .. prefix .. 'Update?)')
-  end, {
-    nargs = '?',
-    desc = 'Restore all plugins or a specific plugin to lockfile state',
-    complete = complete_registered,
-  })
-
-  create_command(prefix .. 'Clean', function()
+Sub.clean = {
+  run = function()
     M.clean_unused()
-  end, {
-    desc = 'Remove unused plugins',
-  })
+  end,
+}
 
-  create_command(prefix .. 'Build', function(opts)
-    local plugin_name = opts.args
+Sub.build = {
+  run = function(ctx)
+    local plugin_name = ctx.arg
     if plugin_name == '' then
-      if not opts.bang then
-        util.schedule_notify(('Use :%sBuild! to run build hooks for all plugins'):format(prefix), vim.log.levels.WARN)
+      if not ctx.bang then
+        util.schedule_notify(('Use :%s build! to run build hooks for all plugins'):format(ctx.cmd_name), vim.log.levels.WARN)
         return
       end
       hooks.run_all_builds()
@@ -158,18 +143,18 @@ M.setup = function(prefix)
     end
     hooks.execute_build(spec.build, registry_entry.plugin)
     util.schedule_notify(('Running build hook for %s'):format(plugin_name), vim.log.levels.INFO)
-  end, {
-    nargs = '?',
-    bang = true,
-    desc = 'Run build hook for a specific plugin or all plugins',
-    complete = function(arg_lead) return filter_completions(state.plugin_names_with_build, arg_lead) end,
-  })
+  end,
+  complete = function(arg_lead)
+    return filter_completions(state.plugin_names_with_build, arg_lead)
+  end,
+}
 
-  create_command(prefix .. 'Load', function(opts)
-    local plugin_name = opts.args
+Sub.load = {
+  run = function(ctx)
+    local plugin_name = ctx.arg
     if plugin_name == '' then
-      if not opts.bang then
-        util.schedule_notify(('Use :%sLoad! to load all unloaded plugins'):format(prefix), vim.log.levels.WARN)
+      if not ctx.bang then
+        util.schedule_notify(('Use :%s load! to load all unloaded plugins'):format(ctx.cmd_name), vim.log.levels.WARN)
         return
       end
       local count = vim.tbl_count(state.unloaded_plugin_names)
@@ -207,26 +192,21 @@ M.setup = function(prefix)
     local loader = require('zpack.plugin_loader')
     loader.process_spec(pack.spec, {})
     util.schedule_notify(('Loaded %s'):format(plugin_name), vim.log.levels.INFO)
-  end, {
-    nargs = '?',
-    bang = true,
-    desc = 'Load all unloaded plugins or a specific plugin',
-    complete = function(arg_lead)
-      local names = vim.tbl_keys(state.unloaded_plugin_names)
-      -- sorted on each invocation; negligible for typical plugin counts
-      table.sort(names, function(a, b) return a:lower() < b:lower() end)
-      return filter_completions(names, arg_lead)
-    end,
-  })
+  end,
+  complete = function(arg_lead)
+    local names = vim.tbl_keys(state.unloaded_plugin_names)
+    -- sorted on each invocation; negligible for typical plugin counts
+    table.sort(names, function(a, b) return a:lower() < b:lower() end)
+    return filter_completions(names, arg_lead)
+  end,
+}
 
-  create_command(prefix .. 'Delete', function(opts)
-    local plugin_name = opts.args
+Sub.delete = {
+  run = function(ctx)
+    local plugin_name = ctx.arg
     if plugin_name == '' then
-      if not opts.bang then
-        util.schedule_notify(
-          ('Use :%sDelete! to confirm deletion of all installed plugin(s)'):format(prefix),
-          vim.log.levels.WARN
-        )
+      if not ctx.bang then
+        util.schedule_notify(('Use :%s delete! to confirm deletion of all installed plugin(s)'):format(ctx.cmd_name), vim.log.levels.WARN)
         return
       end
       local names = {}
@@ -256,12 +236,125 @@ M.setup = function(prefix)
       :format(plugin_name),
       vim.log.levels.WARN
     )
-  end, {
-    nargs = '?',
+  end,
+  complete = function(arg_lead)
+    return filter_completions(state.registered_plugin_names, arg_lead)
+  end,
+}
+
+-- Ordered list used for completion and usage messages.
+local SUB_ORDER = { 'update', 'restore', 'clean', 'build', 'load', 'delete' }
+
+---@param cmd_name string
+---@return function
+local make_dispatcher = function(cmd_name)
+  return function(opts)
+    local fargs = opts.fargs or {}
+    local subname = fargs[1]
+    if not subname or subname == '' then
+      util.schedule_notify(('Usage: :%s {%s} [args]'):format(cmd_name, table.concat(SUB_ORDER, '|')), vim.log.levels.WARN)
+      return
+    end
+
+    local sub = Sub[subname]
+    if not sub then
+      util.schedule_notify(('Unknown subcommand "%s". Available: %s'):format(subname, table.concat(SUB_ORDER, ', ')), vim.log.levels.ERROR)
+      return
+    end
+
+    local arg = ''
+    if fargs[2] then
+      arg = table.concat(fargs, ' ', 2)
+    end
+
+    sub.run({
+      arg = arg,
+      bang = opts.bang,
+      cmd_name = cmd_name,
+    })
+  end
+end
+
+---@return string[]
+local complete_command = function(arg_lead, cmd_line, _cursor_pos)
+  -- Strip leading "<cmd> " (or "<cmd>! ") from cmd_line for parsing.
+  local after_cmd = cmd_line:match('^%S+%s+(.*)$') or ''
+  local parts = vim.split(after_cmd, '%s+', { trimempty = false })
+
+  -- Completing the subcommand itself
+  if #parts <= 1 then
+    return filter_completions(SUB_ORDER, arg_lead)
+  end
+
+  local subname = parts[1]
+  local sub = Sub[subname]
+  if not sub or not sub.complete then
+    return {}
+  end
+  return sub.complete(arg_lead)
+end
+
+---@param cmd_name string
+M.setup = function(cmd_name)
+  if not validate_name(cmd_name) then
+    util.schedule_notify(('Invalid cmd_name "%s": must start with uppercase letter and contain only letters/digits'):format(tostring(cmd_name)), vim.log.levels.ERROR)
+    return
+  end
+
+  local ok, err = pcall(vim.api.nvim_create_user_command, cmd_name, make_dispatcher(cmd_name), {
+    nargs = '*',
     bang = true,
-    desc = 'Delete all plugins or a specific plugin',
-    complete = function(arg_lead) return filter_completions(state.registered_plugin_names, arg_lead) end,
+    desc = 'zpack: ' .. table.concat(SUB_ORDER, '|'),
+    complete = complete_command,
   })
+  if not ok then
+    util.schedule_notify(('Failed to create command %s: %s'):format(cmd_name, err), vim.log.levels.ERROR)
+  end
+end
+
+---------------------------------------------------------------------
+-- Legacy commands
+---------------------------------------------------------------------
+
+local LEGACY_COMMANDS = {
+  { suffix = 'Update',  bang = false },
+  { suffix = 'Restore', bang = false },
+  { suffix = 'Clean',   bang = false },
+  { suffix = 'Build',   bang = true  },
+  { suffix = 'Load',    bang = true  },
+  { suffix = 'Delete',  bang = true  },
+}
+
+---@param prefix string Prefix to register legacy commands under (e.g. 'Z'). Empty string registers bare :Update/:Clean/etc.
+M.setup_legacy = function(prefix)
+  -- Empty prefix is a valid back-compat case; otherwise enforce the same rules as cmd_name.
+  if prefix ~= '' and not validate_name(prefix) then return end
+
+  local deprecation = require('zpack.deprecation')
+
+  for _, entry in ipairs(LEGACY_COMMANDS) do
+    local cmd_name = prefix .. entry.suffix
+    local sub_name = entry.suffix:lower()
+    local sub = Sub[sub_name]
+    local cmd_opts = {
+      nargs = sub.complete and '?' or 0,
+      bang = entry.bang,
+      desc = ('[deprecated] use :ZPack %s instead'):format(sub_name),
+    }
+
+    if sub.complete then
+      cmd_opts.complete = function(arg_lead) return sub.complete(arg_lead) end
+    end
+
+    pcall(vim.api.nvim_create_user_command, cmd_name, function(opts)
+      deprecation.notify_deprecated_once('cmd_prefix', 'legacy_cmd:' .. cmd_name)
+      sub.run({
+        arg = opts.args or '',
+        bang = opts.bang,
+        cmd_name = 'ZPack',
+      })
+    end, cmd_opts)
+  end
 end
 
 return M
