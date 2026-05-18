@@ -146,6 +146,70 @@ function M.create_tests(config)
         helpers.cleanup_test_env()
       end)
 
+      if config.supports_bang then
+        local bang_command = command:gsub('^(%S+)', '%1!')
+
+        helpers.test(bang_command .. " passes force=true to vim.pack.update", function()
+          helpers.setup_test_env()
+
+          require('zpack').setup({
+            spec = {
+              { 'test/plugin-a' },
+              { 'test/plugin-b' },
+            },
+            defaults = { confirm = false },
+          })
+
+          helpers.flush_pending()
+
+          vim.cmd(bang_command)
+          helpers.flush_pending()
+
+          helpers.assert_equal(#_G.test_state.vim_pack_update_calls, 1, "vim.pack.update should be called once")
+          local call = _G.test_state.vim_pack_update_calls[1]
+          helpers.assert_nil(call.names, "names should be nil for all")
+          helpers.assert_not_nil(call.opts, "opts should be passed with bang")
+          helpers.assert_equal(call.opts.force, true, "opts.force should be true with bang")
+          if expected_opts then
+            for k, v in pairs(expected_opts) do
+              helpers.assert_equal(call.opts[k], v, ("opts.%s should be preserved with bang"):format(k))
+            end
+          end
+
+          helpers.cleanup_test_env()
+        end)
+
+        helpers.test(bang_command .. " with plugin name passes force=true and targets that plugin", function()
+          helpers.setup_test_env()
+
+          require('zpack').setup({
+            spec = {
+              { 'test/plugin-a' },
+              { 'test/plugin-b' },
+            },
+            defaults = { confirm = false },
+          })
+
+          helpers.flush_pending()
+
+          vim.cmd(bang_command .. ' plugin-a')
+          helpers.flush_pending()
+
+          helpers.assert_equal(#_G.test_state.vim_pack_update_calls, 1, "vim.pack.update should be called once")
+          local call = _G.test_state.vim_pack_update_calls[1]
+          helpers.assert_table_contains(call.names, 'plugin-a', "plugin-a should be in names list")
+          helpers.assert_not_nil(call.opts, "opts should be passed with bang")
+          helpers.assert_equal(call.opts.force, true, "opts.force should be true with bang")
+          if expected_opts then
+            for k, v in pairs(expected_opts) do
+              helpers.assert_equal(call.opts[k], v, ("opts.%s should be preserved with bang"):format(k))
+            end
+          end
+
+          helpers.cleanup_test_env()
+        end)
+      end
+
       if expected_opts and expected_opts.target == 'lockfile' then
         helpers.test(command .. " shows error when no lockfile exists", function()
           helpers.setup_test_env()

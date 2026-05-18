@@ -13,10 +13,18 @@ return function()
       helpers.flush_pending()
       _G.test_state.notifications = {}
 
-      vim.cmd('ZPack! update')
+      -- An installed plugin absent from the spec gives `clean` something to
+      -- delete, so a wrongly-accepted bang would surface as a non-zero
+      -- vim_pack_del_calls below.
+      _G.test_state.registered_pack_specs['orphan-plugin'] = {
+        src = 'test/orphan-plugin',
+        name = 'orphan-plugin',
+      }
+
+      vim.cmd('ZPack! clean')
       helpers.flush_pending()
 
-      helpers.assert_equal(#_G.test_state.vim_pack_update_calls, 0, "update must not run when given a rejected bang")
+      helpers.assert_equal(#_G.test_state.vim_pack_del_calls, 0, "clean must not run when given a rejected bang")
 
       local found_warning = false
       for _, notif in ipairs(_G.test_state.notifications) do
@@ -25,7 +33,7 @@ return function()
           break
         end
       end
-      helpers.assert_true(found_warning, "should warn that update does not accept a bang")
+      helpers.assert_true(found_warning, "should warn that clean does not accept a bang")
 
       helpers.cleanup_test_env()
     end)

@@ -94,21 +94,28 @@ command name is configurable via |zpack-setup-cmd_name| (default: `ZPack`).
                 Dispatches to one of the subcommands listed below. Subcommand
                 names support tab completion, as do plugin-name arguments
                 where applicable. The bang form `:ZPack!` applies to the
-                subcommands that accept it (`build`, `load`, `delete`).
+                subcommands that accept it (`update`, `restore`, `build`,
+                `load`, `delete`).
 
-:ZPack update [plugin]
+:ZPack[!] update [plugin]
                 Update all plugins that are currently in your spec, or update
-                a specific plugin if a name is provided. Supports tab
-                completion of installed plugin names. See |vim.pack.update()|.
+                a specific plugin if a name is provided. With `!`, apply
+                updates immediately, skipping the confirmation buffer.
+                Supports tab completion of installed plugin names. See
+                |vim.pack.update()|. On Neovim 0.13+, equivalent to
+                `:packupdate[!] [plugin]`.
 
-:ZPack restore [plugin]
+:ZPack[!] restore [plugin]
                 Restore all plugins or a specific plugin to the state
                 recorded in the lockfile. This calls |vim.pack.update()| with
-                `target = 'lockfile'`. Useful for synchronizing plugins across
-                machines or reverting after an update. Requires a lockfile to
-                exist (created automatically by `:ZPack update`). Displays an
-                error if no lockfile exists or the restore otherwise fails.
-                Supports tab completion of registered plugin names.
+                `target = 'lockfile'`. With `!`, apply the restore immediately,
+                skipping the confirmation buffer. Useful for synchronizing
+                plugins across machines or reverting after an update. Requires
+                a lockfile to exist (created automatically by `:ZPack update`).
+                Displays an error if no lockfile exists or the restore
+                otherwise fails. Supports tab completion of registered plugin
+                names. On Neovim 0.13+, equivalent to
+                `:packupdate[!] ++lockfile [plugin]`.
 
 :ZPack clean    Remove plugins that are no longer in your spec. This compares
                 installed plugins with your current spec and deletes any that
@@ -134,10 +141,11 @@ command name is configurable via |zpack-setup-cmd_name| (default: `ZPack`).
                 attempting to delete all will show a warning message.
                 Supports tab completion of installed plugin names. Deleting
                 active plugins in your spec can result in errors in your
-                current session. Restart Neovim to re-install them.
-                Plugins removed directly through vim.pack (the built-in
-                :packdel command, or vim.pack.del()) are recognized too;
-                zpack keeps its session state in sync via |PackChanged|.
+                current session. Restart Neovim to re-install them. On Neovim
+                0.13+, `:ZPack delete {plugin}` is equivalent to
+                `:packdel! {plugin}`, and `:ZPack! delete` to
+                `:packdel! ++all` — though the native command also removes
+                any installed plugins absent from your spec.
 
 ------------------------------------------------------------------------------
 4.3 CONFIGURATIONS                                     *zpack-configurations*
@@ -974,6 +982,15 @@ To fix this, add a route that explicitly shows `vim.pack` messages:
       },
     })
 <
+
+------------------------------------------------------------------------------
+11.4 NATIVE VIM.PACK COMMANDS                          *zpack-native-commands*
+
+On Neovim 0.13+, several `:ZPack` subcommands map to native `vim.pack`
+commands (`:packupdate`, `:packdel`) that can be used interchangeably; zpack
+keeps its session state in sync either way. See |zpack-commands| for the full
+mapping. Reach for the native commands when you want their extra flags, for
+example `:packupdate ++offline`.
 
 ==============================================================================
 12. PUBLIC API                                              *zpack-public-api*

@@ -90,9 +90,13 @@ end
 local Sub = {}
 
 Sub.update = {
+  bang = true,
   takes_arg = true,
   run = function(ctx)
-    run_pack_update(ctx.arg, nil, 'Update failed')
+    local opts
+    -- `!` skips vim.pack's confirmation buffer via the `force` option.
+    if ctx.bang then opts = { force = true } end
+    run_pack_update(ctx.arg, opts, 'Update failed')
   end,
   complete = function(arg_lead)
     return filter_completions(state.registered_plugin_names, arg_lead)
@@ -100,9 +104,13 @@ Sub.update = {
 }
 
 Sub.restore = {
+  bang = true,
   takes_arg = true,
   run = function(ctx)
-    run_pack_update(ctx.arg, { target = 'lockfile' }, ('Restore failed (have you run :%s update?)'):format(ctx.cmd_name))
+    local opts = { target = 'lockfile' }
+    -- `!` skips vim.pack's confirmation buffer via the `force` option.
+    if ctx.bang then opts.force = true end
+    run_pack_update(ctx.arg, opts, ('Restore failed (have you run :%s update?)'):format(ctx.cmd_name))
   end,
   complete = function(arg_lead)
     return filter_completions(state.registered_plugin_names, arg_lead)

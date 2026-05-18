@@ -69,14 +69,28 @@ return {
 zpack provides a single user command, `:ZPack`, with subcommands. The command
 name is configurable via the `cmd_name` option (default: `ZPack`).
 
-- `:ZPack update [plugin]` - Update all plugins, or a specific plugin if provided (supports tab completion). See `:h vim.pack.update()`
-- `:ZPack restore [plugin]` - Restore all plugins, or a specific plugin, to the lockfile state (supports tab completion). Requires a lockfile to exist (created automatically by `:ZPack update`). See `:h vim.pack.update()`
+- `:ZPack[!] update [plugin]` - Update all plugins, or a specific plugin if provided (supports tab completion). `!` applies updates immediately, skipping the confirmation buffer. See `:h vim.pack.update()`
+- `:ZPack[!] restore [plugin]` - Restore all plugins, or a specific plugin, to the lockfile state (supports tab completion). `!` applies the restore immediately, skipping the confirmation buffer. Requires a lockfile to exist (created automatically by `:ZPack update`). See `:h vim.pack.update()`
 - `:ZPack clean` - Remove plugins that are no longer in your spec
 - `:ZPack[!] build [plugin]` - Run build hook for a specific plugin, or all plugins with `!` (supports tab completion)
 - `:ZPack[!] load [plugin]` - Load a specific unloaded plugin, or all unloaded plugins with `!` (supports tab completion)
 - `:ZPack[!] delete [plugin]` - Remove a specific plugin, or all plugins with `!` (supports tab completion)
   - Deleting active plugins in your spec can result in errors in your current session. Restart Neovim to re-install them.
-  - Removing a plugin directly through `vim.pack` (`:packdel`, or `vim.pack.del()`) works too — zpack keeps its session state in sync.
+
+On Neovim 0.13+, several subcommands map to native `vim.pack` commands you can use interchangeably:
+
+| `:ZPack` | Neovim 0.13+ native |
+| --- | --- |
+| `:ZPack update [plugin]` | `:packupdate [plugin]` |
+| `:ZPack! update [plugin]` | `:packupdate! [plugin]` |
+| `:ZPack restore [plugin]` | `:packupdate ++lockfile [plugin]` |
+| `:ZPack! restore [plugin]` | `:packupdate! ++lockfile [plugin]` |
+| `:ZPack delete {plugin}` | `:packdel! {plugin}` |
+| `:ZPack! delete` | `:packdel! ++all` |
+
+`:ZPack! delete` removes only zpack-managed plugins, while `:packdel! ++all` removes *every* installed plugin (including any absent from your spec).
+
+`clean`, `build`, and `load` have no native equivalent. The `:ZPack` subcommands are concise, consistent shortcuts — reach for the native commands when you want their extra flags (e.g. `:packupdate ++offline`).
 
 
 #### Configurations
