@@ -154,6 +154,7 @@ command name is configurable via |zpack-setup-cmd_name| (default: `ZPack`).
         vim_loader = true,       -- enables vim.loader for faster startup (default: true)
       },
       cmd_name = 'ZPack',        -- :ZPack update, :ZPack clean, etc. (default: 'ZPack')
+                                 -- use a shorter name like 'Z' or 'Zp' for fewer keystrokes
     })
 <
 Plugin-level settings always take precedence over `defaults`.
@@ -220,6 +221,7 @@ cmd_name        (string, optional)
                 Examples:
                   - `'ZPack'` creates `:ZPack update`, `:ZPack clean`, etc.
                   - `'MyPack'`  creates `:MyPack update`, `:MyPack clean`, etc.
+                  - `'Z'` creates `:Z update`, `:Z clean`, etc. (fewer keystrokes)
 
 defaults        (table, optional)
                 Default values that apply to all plugins. Plugin-level

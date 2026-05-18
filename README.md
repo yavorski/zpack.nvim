@@ -92,6 +92,7 @@ require('zpack').setup({
     vim_loader = true,       -- enables vim.loader for faster startup (default: true)
   },
   cmd_name = 'ZPack',        -- name of the user command (default: 'ZPack'). Use as: :ZPack update, :ZPack clean, etc.
+                             -- set a shorter name like 'Z' or 'Zp' for fewer keystrokes (:Z update, :Zp clean)
 })
 ```
 
