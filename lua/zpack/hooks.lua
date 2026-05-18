@@ -52,6 +52,26 @@ M.setup_build_tracking = function()
   end, { group = state.startup_group })
 end
 
+-- Drop a plugin from zpack's in-session state whenever vim.pack removes it,
+-- regardless of how the removal was triggered: :ZPack delete, the built-in
+-- :packdel, or a direct vim.pack.del() call. Reacting to PackChanged keeps
+-- state correct without coupling cleanup to zpack's own command handler.
+M.setup_delete_tracking = function()
+  util.autocmd('PackChanged', function(event)
+    if event.data.kind ~= "delete" then
+      return
+    end
+    local spec = event.data.spec
+    -- PackChanged fires for every vim.pack removal, including plugins zpack
+    -- never registered. The spec_registry check keeps this a no-op for those:
+    -- remove_plugin filters the name-keyed lists by name, so an unmanaged
+    -- plugin sharing a name with a managed one would otherwise desync state.
+    if spec and spec.name and spec.src and state.spec_registry[spec.src] then
+      state.remove_plugin(spec.name, spec.src)
+    end
+  end, { group = state.delete_group })
+end
+
 M.setup_lazy_build_tracking = function()
   util.autocmd('PackChanged', function(event)
     if event.data.kind == "update" or event.data.kind == "install" then

@@ -180,7 +180,14 @@ function M.setup_test_env()
   vim.pack.del = function(names, opts)
     table.insert(_G.test_state.vim_pack_del_calls, { names = names, opts = opts })
     for _, name in ipairs(names) do
+      local pack_spec = _G.test_state.registered_pack_specs[name]
       _G.test_state.registered_pack_specs[name] = nil
+      -- Mirror real vim.pack.del: fire PackChanged for each removed plugin.
+      if pack_spec then
+        vim.api.nvim_exec_autocmds('PackChanged', {
+          data = { kind = 'delete', spec = pack_spec },
+        })
+      end
     end
   end
 
@@ -203,6 +210,9 @@ function M.cleanup_test_env()
     end
     if state.lazy_build_group then
       vim.api.nvim_clear_autocmds({ group = state.lazy_build_group })
+    end
+    if state.delete_group then
+      vim.api.nvim_clear_autocmds({ group = state.delete_group })
     end
   end
 

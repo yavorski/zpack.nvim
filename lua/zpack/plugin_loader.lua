@@ -73,6 +73,13 @@ M.process_spec = function(pack_spec, opts)
   opts = opts or {}
   local registry_entry = state.spec_registry[pack_spec.src]
 
+  -- A lazy trigger (cmd/keys/event/ft) can fire after its plugin was removed
+  -- (e.g. :packdel). The trigger tears itself down on fire regardless; this
+  -- guard keeps the resulting call a safe no-op instead of a nil index.
+  if not registry_entry then
+    return
+  end
+
   if registry_entry.load_status == "loaded" then
     return
   end

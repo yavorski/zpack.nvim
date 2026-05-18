@@ -6,6 +6,7 @@ M.is_setup = false
 M.lazy_group = vim.api.nvim_create_augroup('LazyPack', { clear = true })
 M.startup_group = vim.api.nvim_create_augroup('StartupPack', { clear = true })
 M.lazy_build_group = vim.api.nvim_create_augroup('LazyBuildPack', { clear = true })
+M.delete_group = vim.api.nvim_create_augroup('DeletePack', { clear = true })
 
 ---@type { [string]: zpack.RegistryEntry }
 M.spec_registry = {}
@@ -74,21 +75,6 @@ M.remove_plugin = function(plugin_name, src)
   end, M.plugin_names_with_build)
 
   M.unloaded_plugin_names[plugin_name] = nil
-end
-
-M.clear_plugin_lists = function()
-  M.spec_registry = {}
-  M.src_with_pending_build = {}
-  M.registered_plugins = {}
-  M.registered_plugin_names = {}
-  M.plugin_names_with_build = {}
-  M.unloaded_plugin_names = {}
-  M.dependency_graph = {}
-  M.reverse_dependency_graph = {}
-  M.src_to_pack_spec = {}
-  M.name_to_src = {}
-  M.lazy_parent_cache = {}
-  M.resolve_main_not_found = {}
 end
 
 return M

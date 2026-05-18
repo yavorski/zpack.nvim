@@ -217,15 +217,19 @@ Sub.delete = {
         util.schedule_notify(('Use :%s! delete to confirm deletion of all installed plugin(s)'):format(ctx.cmd_name), vim.log.levels.WARN)
         return
       end
+      -- Source names from vim.pack.get, not registered_plugins: the latter
+      -- omits plugins absent from registered_plugins (e.g. cond-disabled
+      -- ones), leaving their zpack state behind after the wipe.
       local names = {}
-      for i = #state.registered_plugins, 1, -1 do
-        table.insert(names, state.registered_plugins[i].name)
+      for _, pack in ipairs(vim.pack.get(nil, { info = false })) do
+        if state.spec_registry[pack.spec.src] then
+          table.insert(names, pack.spec.name)
+        end
       end
       table.insert(names, 'zpack.nvim')
 
       util.schedule_notify(("Deleting all %d installed plugin(s)..."):format(#names), vim.log.levels.INFO)
       vim.pack.del(names, { force = true })
-      state.clear_plugin_lists()
       util.schedule_notify(
         "All plugins deleted. This can result in errors in your current session. Restart Neovim to re-install them or remove them from your spec.",
         vim.log.levels.WARN)
@@ -238,7 +242,6 @@ Sub.delete = {
     end
 
     vim.pack.del({ plugin_name }, { force = true })
-    state.remove_plugin(plugin_name, pack.spec.src)
     util.schedule_notify(
       ('%s deleted. This can result in errors in your current session. Restart Neovim to re-install it or remove it from your spec.')
       :format(plugin_name),

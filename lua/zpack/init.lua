@@ -69,8 +69,10 @@ local process_all = function(ctx)
   local state = require('zpack.state')
 
   vim.api.nvim_clear_autocmds({ group = state.lazy_build_group })
+  vim.api.nvim_clear_autocmds({ group = state.delete_group })
   ctx.vim_packs = require('zpack.merge').resolve_all()
   hooks.setup_build_tracking()
+  hooks.setup_delete_tracking()
   require('zpack.registration').register_all(ctx)
 
   -- Install module loader AFTER registration (when we know lazy plugins)

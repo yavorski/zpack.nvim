@@ -76,6 +76,7 @@ name is configurable via the `cmd_name` option (default: `ZPack`).
 - `:ZPack[!] load [plugin]` - Load a specific unloaded plugin, or all unloaded plugins with `!` (supports tab completion)
 - `:ZPack[!] delete [plugin]` - Remove a specific plugin, or all plugins with `!` (supports tab completion)
   - Deleting active plugins in your spec can result in errors in your current session. Restart Neovim to re-install them.
+  - Removing a plugin directly through `vim.pack` (`:packdel`, or `vim.pack.del()`) works too — zpack keeps its session state in sync.
 
 
 #### Configurations
