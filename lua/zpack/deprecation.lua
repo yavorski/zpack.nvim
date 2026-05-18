@@ -52,13 +52,10 @@ M.notify_deprecated = function(key)
   )
 end
 
-local legacy_command_notified = false
--- Warns once per session that a legacy :<prefix><Suffix> command is
--- deprecated in favor of the :<cmd_name> <subcommand> form. Deduped across
--- all legacy commands, so a session sees the notice at most once.
+-- Warns that a legacy :<prefix><Suffix> command is deprecated in favor of
+-- the :<cmd_name> <subcommand> form. Fires on every invocation so the notice
+-- is not missed if an earlier one scrolled past.
 M.notify_legacy_command = function(legacy_name, cmd_name, sub_name)
-  if legacy_command_notified then return end
-  legacy_command_notified = true
   utils.schedule_notify(
     ("DEPRECATED: :%s is deprecated. Use :%s %s instead."):format(legacy_name, cmd_name, sub_name),
     vim.log.levels.WARN

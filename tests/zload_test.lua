@@ -100,17 +100,17 @@ return function()
 
       local found_warning = false
       for _, notif in ipairs(_G.test_state.notifications) do
-        if notif.msg:find('load!') and notif.level == vim.log.levels.WARN then
+        if notif.msg:find(':ZPack! load', 1, true) and notif.level == vim.log.levels.WARN then
           found_warning = true
           break
         end
       end
-      helpers.assert_true(found_warning, "Should show warning about using load!")
+      helpers.assert_true(found_warning, "Should show warning about using :ZPack! load")
 
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("load! loads all unloaded plugins", function()
+    helpers.test("ZPack! load loads all unloaded plugins", function()
       helpers.setup_test_env()
       local state = require('zpack.state')
       local config_called = {}
@@ -144,7 +144,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("load! with no unloaded plugins shows info message", function()
+    helpers.test("ZPack! load with no unloaded plugins shows info message", function()
       helpers.setup_test_env()
 
       require('zpack').setup({

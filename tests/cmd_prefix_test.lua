@@ -90,12 +90,12 @@ return function()
       helpers.flush_pending()
       _G.test_state.notifications = {}
 
-      vim.cmd('ZLoad') -- no bang, no arg -> warns "Use :<cmd_name> load!"
+      vim.cmd('ZLoad') -- no bang, no arg -> warns "Use :<cmd_name>! load"
       helpers.flush_pending()
 
       local found = false
       for _, notif in ipairs(_G.test_state.notifications) do
-        if notif.msg:find(':MyPack load!', 1, true) then
+        if notif.msg:find(':MyPack! load', 1, true) then
           found = true
           break
         end

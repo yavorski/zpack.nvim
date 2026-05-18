@@ -27,7 +27,7 @@ return function()
       helpers.cleanup_test_env()
     end)
 
-    helpers.test("delete! all plugins uses force=true", function()
+    helpers.test("ZPack! delete all plugins uses force=true", function()
       helpers.setup_test_env()
 
       require('zpack').setup({

@@ -122,7 +122,7 @@ Sub.build = {
     local plugin_name = ctx.arg
     if plugin_name == '' then
       if not ctx.bang then
-        util.schedule_notify(('Use :%s build! to run build hooks for all plugins'):format(ctx.cmd_name), vim.log.levels.WARN)
+        util.schedule_notify(('Use :%s! build to run build hooks for all plugins'):format(ctx.cmd_name), vim.log.levels.WARN)
         return
       end
       hooks.run_all_builds()
@@ -160,7 +160,7 @@ Sub.load = {
     local plugin_name = ctx.arg
     if plugin_name == '' then
       if not ctx.bang then
-        util.schedule_notify(('Use :%s load! to load all unloaded plugins'):format(ctx.cmd_name), vim.log.levels.WARN)
+        util.schedule_notify(('Use :%s! load to load all unloaded plugins'):format(ctx.cmd_name), vim.log.levels.WARN)
         return
       end
       local count = vim.tbl_count(state.unloaded_plugin_names)
@@ -214,7 +214,7 @@ Sub.delete = {
     local plugin_name = ctx.arg
     if plugin_name == '' then
       if not ctx.bang then
-        util.schedule_notify(('Use :%s delete! to confirm deletion of all installed plugin(s)'):format(ctx.cmd_name), vim.log.levels.WARN)
+        util.schedule_notify(('Use :%s! delete to confirm deletion of all installed plugin(s)'):format(ctx.cmd_name), vim.log.levels.WARN)
         return
       end
       local names = {}
