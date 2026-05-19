@@ -60,8 +60,10 @@ M.get_priority = function(src)
   if not entry then
     return 50
   end
-  local spec = entry.merged_spec
-  return spec and spec.priority or 50
+  local priority = entry.merged_spec and entry.merged_spec.priority
+  -- A non-number priority survives import as an advisory-only error; coerce
+  -- it away here so compare_priority's `>` cannot throw on a string/etc.
+  return type(priority) == 'number' and priority or 50
 end
 
 ---Get import order for a plugin source (used as tiebreaker)

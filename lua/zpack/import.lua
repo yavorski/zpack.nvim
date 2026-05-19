@@ -55,11 +55,13 @@ local is_single_spec = function(value)
   return false
 end
 
----Check if spec is an import spec
+---Check if spec is an import spec. A non-string `import` is not one: it cannot
+---name a module directory, so the spec falls through to plugin-spec handling
+---where the bad `import` is an advisory-only error (reported by validate_spec).
 ---@param spec zpack.Spec
 ---@return boolean
 local is_import_spec = function(spec)
-  return spec.import ~= nil
+  return type(spec.import) == 'string'
 end
 
 ---Normalize dependencies to spec array
@@ -190,16 +192,10 @@ local import_one_spec = function(spec, ctx)
   end
 
   if is_import_spec(spec) then
-    -- A non-string `import` cannot name a module directory; it was already
-    -- reported by validate_spec above. Skip it rather than crashing in
-    -- import_from_module's path arithmetic.
-    if type(spec.import) ~= 'string' then
-      return
-    end
     if spec.enabled == false or (type(spec.enabled) == "function" and not spec.enabled()) then
       return
     end
-    import_from_module(spec.import, ctx)
+    import_from_module(spec.import --[[@as string]], ctx)
     return
   end
 
