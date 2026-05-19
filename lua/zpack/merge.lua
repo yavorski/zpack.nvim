@@ -130,8 +130,9 @@ local function merge_and_cond(base, incoming)
       if type(incoming) == "function" then
         incoming_result = incoming(plugin)
       end
-      -- Both results are booleans here (the function branches reassigned
-      -- them); the cast just states what the analyzer cannot narrow.
+      -- Each result is a function's boolean return or the operand's own
+      -- value; a non-function `cond` is already a boolean, so the `and`
+      -- yields a boolean. The cast states what the analyzer cannot narrow.
       return base_result and incoming_result --[[@as boolean]]
     end
   end
@@ -161,8 +162,9 @@ local function merge_and_enabled(base, incoming)
       if type(incoming) == "function" then
         incoming_result = incoming()
       end
-      -- Both results are booleans here (the function branches reassigned
-      -- them); the cast just states what the analyzer cannot narrow.
+      -- Each result is a function's boolean return or the operand's own
+      -- value; a non-function `enabled` is already a boolean, so the `and`
+      -- yields a boolean. The cast states what the analyzer cannot narrow.
       return base_result and incoming_result --[[@as boolean]]
     end
   end
