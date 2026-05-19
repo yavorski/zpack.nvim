@@ -7,6 +7,8 @@
 ---
 ---Discovered automatically by `:checkhealth zpack` — nothing registers it.
 
+local state = require('zpack.state')
+
 local M = {}
 
 local ISSUES_URL = 'https://github.com/zuqini/zpack.nvim/issues'
@@ -37,8 +39,7 @@ local function check_environment()
   end
 end
 
----@param state table The zpack.state module
-local function check_setup(state)
+local function check_setup()
   vim.health.start('Setup')
 
   if state.is_setup then
@@ -51,8 +52,7 @@ local function check_setup(state)
   end
 end
 
----@param state table The zpack.state module
-local function check_config(state)
+local function check_config()
   vim.health.start('Configuration')
 
   if not state.is_setup or not state.config then
@@ -96,8 +96,7 @@ local function check_config(state)
   end
 end
 
----@param state table The zpack.state module
-local function check_plugins(state)
+local function check_plugins()
   vim.health.start('Plugins')
 
   if not state.is_setup then
@@ -162,11 +161,10 @@ end
 
 ---Entry point for `:checkhealth zpack`.
 function M.check()
-  local state = require('zpack.state')
   check_environment()
-  check_setup(state)
-  check_config(state)
-  check_plugins(state)
+  check_setup()
+  check_config()
+  check_plugins()
   check_bug_report()
 end
 

@@ -11,16 +11,17 @@ local imported_modules = {}
 ---@return string|nil source URL/path, or nil if invalid
 ---@return string|nil error message if validation fails
 local normalize_source = function(spec)
-  -- `[1]` must be a string: a non-string (an over-nested spec, a typo) would
-  -- crash the concat or coerce to a garbage URL. Fall through to the nil/err
-  -- result so import_one_spec skips it instead of aborting setup().
+  -- Each source field must be a string: a non-string (an over-nested spec, a
+  -- typo) would crash the `[1]` concat or the `dir` expand, or coerce to a
+  -- garbage URL. Fall through to the nil/err result so import_one_spec skips
+  -- it instead of aborting setup().
   if type(spec[1]) == 'string' then
     return 'https://github.com/' .. spec[1]
-  elseif spec.src then
+  elseif type(spec.src) == 'string' then
     return spec.src
-  elseif spec.url then
+  elseif type(spec.url) == 'string' then
     return spec.url
-  elseif spec.dir then
+  elseif type(spec.dir) == 'string' then
     return vim.fn.expand(spec.dir)
   else
     return nil, "spec must provide one of: [1], src, dir, or url"
