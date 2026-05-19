@@ -67,7 +67,8 @@ return {
 #### Commands
 
 zpack provides a single user command, `:ZPack`, with subcommands. The command
-name is configurable via the `cmd_name` option (default: `ZPack`).
+name is configurable via the `cmd_name` option — a short name like `Z` or `Zp`
+is recommended for ease of use.
 
 - `:ZPack[!] update [plugin]` - Update all plugins, or a specific plugin if provided (supports tab completion). `!` applies updates immediately, skipping the confirmation buffer. See `:h vim.pack.update()`
 - `:ZPack[!] restore [plugin]` - Restore all plugins, or a specific plugin, to the lockfile state (supports tab completion). `!` applies the restore immediately, skipping the confirmation buffer. Requires a lockfile to exist (created automatically by `:ZPack update`). See `:h vim.pack.update()`

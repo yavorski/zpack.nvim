@@ -87,7 +87,8 @@ Each file should return a spec or list of specs (see |zpack-examples| or
 4.2 COMMANDS                                                  *zpack-commands*
 
 zpack provides a single user command, `:ZPack`, with subcommands. The
-command name is configurable via |zpack-setup-cmd_name| (default: `ZPack`).
+command name is configurable via |zpack-setup-cmd_name| — a short name like
+`Z` or `Zp` is recommended for ease of use.
 
                                                                       *:ZPack*
 :ZPack {subcommand} [args]
@@ -223,9 +224,10 @@ spec            (table, optional)
 
                                                        *zpack-setup-cmd_name*
 cmd_name        (string, optional)
-                Name of the single user command. Change this if the default
-                conflicts with another plugin. Must start with an uppercase
-                letter and contain only letters and digits. Default: `'ZPack'`
+                Name of the single user command. A short name such as `'Z'`
+                or `'Zp'` is recommended for ease of use. Must start with an
+                uppercase letter and contain only letters and digits.
+                Default: `'ZPack'`
                 Examples:
                   - `'ZPack'` creates `:ZPack update`, `:ZPack clean`, etc.
                   - `'MyPack'`  creates `:MyPack update`, `:MyPack clean`, etc.
