@@ -65,6 +65,35 @@ local split_very_lazy = function(events)
   return has_very_lazy, other_events
 end
 
+---Schedule `cb` on the next tick (if vim has entered) or on the next
+---UIEnter (latched against nvim#25526). Shared by the per-plugin VeryLazy
+---load and the `User VeryLazy` emit so the latch lives in one place.
+---@param cb function
+local function on_ui_enter_or_now(cb)
+  if vim.v.vim_did_enter == 1 then
+    vim.schedule(cb)
+  else
+    vim.api.nvim_create_autocmd('UIEnter', {
+      group = state.lazy_group,
+      once = true,
+      callback = util.latch_first_call(function()
+        vim.schedule(cb)
+      end),
+    })
+  end
+end
+
+---Fire `User VeryLazy` once on UIEnter (or immediately if vim has already
+---entered). Matches lazy.nvim's contract so user autocmds keyed on
+---`User VeryLazy` work in configs ported from lazy.nvim. Called from
+---lazy.process_all AFTER per-plugin UIEnter handlers register so VeryLazy
+---plugins are loaded by the time User VeryLazy fires.
+M.fire_very_lazy = function()
+  on_ui_enter_or_now(function()
+    vim.api.nvim_exec_autocmds('User', { pattern = 'VeryLazy', modeline = false })
+  end)
+end
+
 ---@param pack_spec vim.pack.Spec
 ---@param spec zpack.Spec
 ---@param event zpack.EventValue
@@ -76,19 +105,21 @@ M.setup = function(pack_spec, spec, event)
 
     if has_very_lazy then
       -- VeryLazy is synthetic (UIEnter-only); no real event to re-fire.
-      util.autocmd("UIEnter", function()
-        vim.schedule(function()
-          loader.try_process_spec(pack_spec)
-        end)
-      end, { group = state.lazy_group, once = true })
+      -- When setup() runs after UIEnter (`:luafile`, config reload), the
+      -- UIEnter autocmd would never fire — schedule the load directly so
+      -- the plugin still loads before lazy.fire_very_lazy's User VeryLazy
+      -- emit (which also fast-paths on vim_did_enter).
+      on_ui_enter_or_now(function()
+        loader.try_process_spec(pack_spec)
+      end)
     end
 
     if #other_events > 0 then
-      util.autocmd(other_events, function(ev)
-        -- Skip when a sibling event/ft has already loaded (or is mid-load,
-        -- when plugin/ files synchronously fire a matching autocmd during
-        -- packadd). "loaded" prevents double-firing via refire's FileType
-        -- branch; "loading" prevents spurious "Circular dependency" notify.
+      -- latch_first_call gates before the load_status check so a second
+      -- nested fire in the same tick bails before refire.exec can double-fire
+      -- user autocmds. The load_status gate handles other races (sibling
+      -- event/ft already loaded, plugin/ files re-entering synchronously).
+      util.autocmd(other_events, util.latch_first_call(function(ev)
         local entry = state.spec_registry[pack_spec.src]
         if entry and entry.load_status ~= "pending" then
           return
@@ -98,7 +129,7 @@ M.setup = function(pack_spec, spec, event)
           return
         end
         refire.exec(ev, snap)
-      end, { group = state.lazy_group, once = true, pattern = normalized_event.pattern })
+      end), { group = state.lazy_group, once = true, pattern = normalized_event.pattern })
     end
   end
 end

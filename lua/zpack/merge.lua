@@ -1,3 +1,5 @@
+local util = require('zpack.utils')
+
 local M = {}
 
 M.OVERRIDE = "override"
@@ -61,7 +63,9 @@ local function to_array(val)
   return { val }
 end
 
----Get unique key for a value (handles KeySpec with mode)
+---Identity is (lhs, mode, ft, buffer) so disjoint-scope specs (same lhs
+---under different ft/buffer) both survive merge. Format is private — only
+---the identity is shared with lazy_trigger/keys.lua's create_key_id.
 ---@param v any
 ---@return string
 local function get_unique_key(v)
@@ -75,7 +79,21 @@ local function get_unique_key(v)
     table.sort(sorted)
     mode = table.concat(sorted, ",")
   end
-  return lhs .. ":" .. mode
+  local ft = ""
+  local ft_list = util.normalize_ft_scope(v.ft)
+  if ft_list then
+    local sorted = vim.list_slice(ft_list)
+    table.sort(sorted)
+    ft = ":ft=" .. table.concat(sorted, ",")
+  end
+  local buf = ""
+  if v.buffer ~= nil then
+    -- lazy.nvim parity: `buffer = true` and `buffer = 0` both mean "current
+    -- buffer" — coerce so they share a key.
+    local b = v.buffer == true and 0 or v.buffer
+    buf = ":buf=" .. tostring(b)
+  end
+  return lhs .. ":" .. mode .. ft .. buf
 end
 
 ---Extend list with unique values

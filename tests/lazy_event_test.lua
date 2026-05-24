@@ -94,8 +94,14 @@ describe("Lazy Loading - Events", function()
     )
   end)
 
-  it("VeryLazy event creates UIEnter autocmd", function()
+  it("VeryLazy plugin loads when setup runs post-UIEnter", function()
+    -- Test environment has vim_did_enter == 1, so the per-plugin UIEnter
+    -- autocmd path is skipped and the load is scheduled directly. Without
+    -- this fast-path, `event = 'VeryLazy'` plugins would never load after
+    -- a `:luafile` / config reload because UIEnter is already in the past.
     local state = require('zpack.state')
+    assert.are.equal(1, vim.v.vim_did_enter,
+      "Test prerequisite: this test exercises the post-UIEnter setup path")
 
     require('zpack').setup({
       spec = {
@@ -108,11 +114,10 @@ describe("Lazy Loading - Events", function()
     })
 
     helpers.flush_pending()
-    local autocmds = vim.api.nvim_get_autocmds({ group = state.lazy_group })
-    assert.is_not_nil(
-      helpers.find_autocmd(autocmds, 'UIEnter'),
-      "VeryLazy should create UIEnter autocmd"
-    )
+
+    local src = 'https://github.com/test/plugin'
+    assert.are.equal('loaded', state.spec_registry[src].load_status,
+      "VeryLazy plugin should be loaded via the post-UIEnter fast-path")
   end)
 
   it("multiple EventSpecs with different patterns", function()
@@ -776,18 +781,12 @@ describe("Lazy Loading - Events", function()
     local original_process_spec = loader.process_spec
     local test_group = vim.api.nvim_create_augroup('ZpackTest', { clear = true })
 
-    require('zpack').setup({
-      spec = {
-        {
-          'test/plugin',
-          event = 'User',
-        },
-      },
-      defaults = { confirm = false },
-    })
-
-    helpers.flush_pending()
-
+    -- Install the mock BEFORE setup() so that the auto-emitted `User VeryLazy`
+    -- (scheduled by lazy.fire_very_lazy when `vim_did_enter == 1`) and the
+    -- test's explicit `nvim_exec_autocmds('User', {})` both route through it.
+    -- The once-true `User *` proxy is consumed by whichever dispatch lands
+    -- first; the explicit one must land first so the empty-match-fallback
+    -- contract is what's being pinned.
     local refire_count = 0
     loader.process_spec = function(pack_spec)
       original_process_spec(pack_spec)
@@ -799,6 +798,21 @@ describe("Lazy Loading - Events", function()
       })
     end
 
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          event = 'User',
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    -- No `flush_pending` before the explicit dispatch: the VeryLazy emit is
+    -- scheduled (vim.schedule), so it has not yet run. The explicit dispatch
+    -- below consumes the proxy first with `ev.match = ''`, exercising the
+    -- empty-match-fallback path. The scheduled emit fires harmlessly later
+    -- (proxy already consumed, test handler is once-true and consumed).
     vim.api.nvim_exec_autocmds('User', {})
     helpers.flush_pending()
 
@@ -807,5 +821,80 @@ describe("Lazy Loading - Events", function()
 
     loader.process_spec = original_process_spec
     vim.api.nvim_del_augroup_by_id(test_group)
+  end)
+
+  -- Bead zpack_nvim-8k9: per-autocmd `done` flag guards against nvim#25526
+  -- (https://github.com/neovim/neovim/issues/25526), where a `once = true`
+  -- autocmd can fire twice in the same tick. The visible contract: invoking
+  -- the lazy-load callback twice in a row dispatches refire exactly once,
+  -- even if the load_status gate hasn't yet committed `loaded`.
+  it("event proxy callback only refires once on synchronous double-invocation", function()
+    local refire = require('zpack.lazy_trigger.refire')
+    local state = require('zpack.state')
+    local exec_call_count = 0
+    local original_exec = refire.exec
+    refire.exec = function(...)
+      exec_call_count = exec_call_count + 1
+      return original_exec(...)
+    end
+
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          event = 'BufReadPost',
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    local target
+    for _, au in ipairs(vim.api.nvim_get_autocmds({ group = state.lazy_group })) do
+      if au.event == 'BufReadPost' then
+        target = au
+        break
+      end
+    end
+    assert.is_not_nil(target, "BufReadPost autocmd should be registered")
+    assert.is_not_nil(target.callback, "Callback must be exposed for the test")
+
+    local ev = { event = 'BufReadPost', buf = vim.api.nvim_get_current_buf(), match = '' }
+    target.callback(ev)
+    target.callback(ev)
+
+    refire.exec = original_exec
+
+    assert.are.equal(1, exec_call_count,
+      "refire.exec must fire exactly once across two callback invocations")
+  end)
+
+  -- lazy.nvim emits `User VeryLazy` once on UIEnter so configs can hook
+  -- `nvim_create_autocmd("User", { pattern = "VeryLazy" })` for post-setup
+  -- delayed init. zpack must mirror that contract for ported configs.
+  it("setup emits User VeryLazy on UIEnter", function()
+    local fired = false
+    local test_group = vim.api.nvim_create_augroup('ZpackVeryLazyTest', { clear = true })
+    vim.api.nvim_create_autocmd('User', {
+      group = test_group,
+      pattern = 'VeryLazy',
+      callback = function() fired = true end,
+    })
+
+    require('zpack').setup({
+      spec = {
+        { 'test/plugin' },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+    vim.api.nvim_exec_autocmds('UIEnter', {})
+    helpers.flush_pending()
+
+    vim.api.nvim_del_augroup_by_id(test_group)
+
+    assert.is_true(fired, "User VeryLazy should fire on UIEnter")
   end)
 end)

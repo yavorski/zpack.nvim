@@ -29,9 +29,9 @@
 
   -- Lazy loading triggers (auto-sets lazy=true unless overridden)
   -- All triggers can also be functions that receive zpack.Plugin and return the respective type
-  event = string|string[]|zpack.EventSpec|(string|zpack.EventSpec)[]|function(plugin), -- Autocommand event(s). Supports 'VeryLazy' and inline patterns: "BufReadPre *.lua"
+  event = string|string[]|zpack.EventSpec|(string|zpack.EventSpec)[]|function(plugin), -- Autocommand event(s). Supports 'VeryLazy' and inline patterns: "BufReadPre *.lua". zpack auto-emits `User VeryLazy` once on UIEnter so user-config `autocmd User VeryLazy` hooks fire.
   pattern = string|string[],            -- Global fallback pattern(s) for all events
-  cmd = string|string[]|function(plugin), -- Command(s) to create
+  cmd = string|string[]|function(plugin), -- Command(s) to create; tab-completion on the command also triggers the load
   keys = zpack.KeySpec|zpack.KeySpec[]|function(plugin), -- Keymap(s) to create
   ft = string|string[]|function(plugin), -- FileType(s) to lazy load on
 
@@ -83,6 +83,8 @@ The plugin data object passed to hooks and trigger functions:
   [2] = function() end,           -- RHS function
   desc = "description",           -- Keymap description
   mode = "n"|{"n","v"},           -- Mode(s), default: "n"
+  ft = "lua"|{"lua","vim"},       -- FileType scope; keymap installs buffer-locally on matching FileType only
+  buffer = true|0|7,              -- Buffer scope: true/0 = current buffer; integer = specific buffer
   remap = true|false,             -- Allow remapping, default: false
   nowait = true|false,            -- Default: false
   expr = true|false,              -- RHS is an expression, default: false
@@ -91,6 +93,11 @@ The plugin data object passed to hooks and trigger functions:
   replace_keycodes = true|false,  -- Replace keycodes in expr result; defaults to true when expr is true
 }
 ```
+
+A KeySpec whose `[2]` rhs is `<Nop>` (any case) or the empty string is
+installed as a real no-op keymap rather than a lazy proxy — pressing the key
+never loads the plugin. Useful for suppressing default mappings the plugin
+would otherwise install. Matches lazy.nvim's `Util.is_nop` behavior.
 
 ### zpack.PluginInfo Reference
 

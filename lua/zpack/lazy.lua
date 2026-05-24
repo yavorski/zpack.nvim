@@ -115,6 +115,9 @@ M.process_all = function(ctx)
   end
   cmd_handler.setup(ctx.registered_lazy_packs)
   keys_handler.setup(ctx.registered_lazy_packs)
+  -- Producer of the User VeryLazy emit lives next to its per-plugin VeryLazy
+  -- consumer (event_handler) so the synthetic-event protocol stays in one file.
+  event_handler.fire_very_lazy()
 end
 
 return M
