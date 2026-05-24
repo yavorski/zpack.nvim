@@ -48,10 +48,10 @@ local function has_lazy_parent(dep_src)
         return true
       end
       if parent_spec.lazy == nil then
-        local event = utils.resolve_field(parent_spec.event, parent_entry.plugin)
-        local cmd = utils.resolve_field(parent_spec.cmd, parent_entry.plugin)
-        local ft = utils.resolve_field(parent_spec.ft, parent_entry.plugin)
-        local keys = utils.resolve_field(parent_spec.keys, parent_entry.plugin)
+        local event = utils.try_resolve_field(parent_spec.event, parent_entry.plugin, parent_src, 'event')
+        local cmd = utils.try_resolve_field(parent_spec.cmd, parent_entry.plugin, parent_src, 'cmd')
+        local ft = utils.try_resolve_field(parent_spec.ft, parent_entry.plugin, parent_src, 'ft')
+        local keys = utils.try_resolve_field(parent_spec.keys, parent_entry.plugin, parent_src, 'keys')
         if event or cmd or ft or (keys and #keys > 0) then
           state.lazy_parent_cache[dep_src] = true
           return true
@@ -73,10 +73,10 @@ M.is_lazy = function(spec, plugin, src)
     return spec.lazy
   end
 
-  local event = utils.resolve_field(spec.event, plugin)
-  local cmd = utils.resolve_field(spec.cmd, plugin)
-  local ft = utils.resolve_field(spec.ft, plugin)
-  local keys = utils.resolve_field(spec.keys, plugin)
+  local event = utils.try_resolve_field(spec.event, plugin, src, 'event')
+  local cmd = utils.try_resolve_field(spec.cmd, plugin, src, 'cmd')
+  local ft = utils.try_resolve_field(spec.ft, plugin, src, 'ft')
+  local keys = utils.try_resolve_field(spec.keys, plugin, src, 'keys')
 
   if event or cmd or ft or (keys and #keys > 0) then
     return true
@@ -101,8 +101,9 @@ M.process_all = function(ctx)
       local spec = registry_entry.merged_spec --[[@as zpack.Spec]]
       local plugin = registry_entry.plugin
 
-      local event = utils.resolve_field(spec.event, plugin)
-      local ft = utils.resolve_field(spec.ft, plugin)
+      local label = pack_spec.name or pack_spec.src
+      local event = utils.try_resolve_field(spec.event, plugin, label, 'event')
+      local ft = utils.try_resolve_field(spec.ft, plugin, label, 'ft')
 
       if event then
         event_handler.setup(pack_spec, spec, event)

@@ -174,6 +174,53 @@ describe("Spec Import", function()
     package.loaded['test_plugins.foo'] = nil
   end)
 
+  -- Regression: an import spec's `enabled = function() error(...) end` used to
+  -- abort setup() mid-import, stranding every later spec. After routing the
+  -- import spec's eager enabled through utils.check_enabled, a throwing enabled
+  -- is treated as disabled (import skipped) and setup() continues to siblings.
+  it("import with throwing enabled is skipped, sibling specs still register", function()
+    local utils = require('zpack.utils')
+    local original_lsdir = utils.lsdir
+    local original_stdpath = vim.fn.stdpath
+    vim.fn.stdpath = function() return '/mock/config' end
+    utils.lsdir = function(path)
+      if path == '/mock/config/lua/test_plugins' then
+        return {
+          { name = 'foo.lua', type = 'file' },
+        }
+      end
+      return {}
+    end
+
+    package.loaded['test_plugins.foo'] = { 'test/foo-plugin' }
+
+    _G.test_state.notifications = {}
+    local state = require('zpack.state')
+    require('zpack').setup({
+      { import = 'test_plugins', enabled = function() error("boom", 0) end },
+      { 'test/sibling-plugin' },
+    })
+    helpers.flush_pending()
+
+    assert.is_nil(state.spec_registry['https://github.com/test/foo-plugin'],
+      "foo-plugin should NOT be registered when import's enabled throws")
+    assert.is_not_nil(state.spec_registry['https://github.com/test/sibling-plugin'],
+      "sibling spec must still register after throwing import enabled")
+
+    local saw_notify = false
+    for _, n in ipairs(_G.test_state.notifications) do
+      if n.msg:find("Failed to evaluate enabled for import:test_plugins") then
+        saw_notify = true
+        break
+      end
+    end
+    assert.is_true(saw_notify, "throwing import enabled should surface a structured notify")
+
+    utils.lsdir = original_lsdir
+    vim.fn.stdpath = original_stdpath
+    package.loaded['test_plugins.foo'] = nil
+  end)
+
   it("nested import works (init.lua with import)", function()
     local utils = require('zpack.utils')
     local original_lsdir = utils.lsdir

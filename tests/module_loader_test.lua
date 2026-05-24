@@ -531,4 +531,45 @@ describe("Module Loader", function()
     vim.pack.add = original_vim_pack_add
     helpers.cleanup_mock_plugin_dir(base_path)
   end)
+
+  -- Regression: a throw inside process_spec used to leave the loader's
+  -- per-source `currently_loading_sources` flag set, after which the
+  -- early-return at module_loader:288 silently no-op'd every subsequent
+  -- require of the plugin's modules.
+  it("loader clears currently_loading_sources when process_spec throws", function()
+    local state = require('zpack.state')
+
+    require('zpack').setup({
+      spec = {
+        { 'test/throw-plugin', lazy = true },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+    local src = 'https://github.com/test/throw-plugin'
+
+    local original_packadd = vim.cmd.packadd
+    vim.cmd.packadd = function() error("simulated packadd failure", 0) end
+
+    local module_loader = require('zpack.module_loader')
+    local ok = pcall(module_loader.loader, 'throw-plugin')
+    assert.is_false(ok, "loader should propagate the throw")
+
+    vim.cmd.packadd = original_packadd
+
+    -- Restore registry state so the retry exercises the loader path freshly;
+    -- the load_status reset is covered by lifecycle_test.
+    assert.are.equal("pending", state.spec_registry[src].load_status,
+      "process_spec must reset load_status (cross-checks the plugin_loader fix)")
+
+    -- Re-attempting the load must NOT silently no-op via the early-return at
+    -- `currently_loading_sources[src]`. A successful retry proves the flag was
+    -- cleared.
+    local loaded = false
+    state.spec_registry[src].merged_spec.config = function() loaded = true end
+    module_loader.loader('throw-plugin')
+    helpers.flush_pending()
+    assert.is_true(loaded, "second require must reach the loader body, not silently no-op")
+  end)
 end)

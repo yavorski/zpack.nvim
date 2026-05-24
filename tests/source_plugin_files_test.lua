@@ -128,6 +128,44 @@ describe("source_after_plugin_files", function()
     vim.fn.delete(tmpdir, "rf")
   end)
 
+  -- Regression: the cache flag used to be set before the source loop, AND a
+  -- throw propagated out of the loop instead of being caught per-file. The
+  -- combination meant a throw on file N skipped N+1..end with no retry.
+  -- Per-file pcall now ensures every file is attempted on the first call.
+  it("continues sourcing later files when one throws", function()
+    local utils = require('zpack.utils')
+    local tmpdir = vim.fn.tempname()
+    local after_dir = tmpdir .. "/after/plugin"
+    vim.fn.mkdir(after_dir, "p")
+
+    local f = io.open(after_dir .. "/a_throws.lua", "w")
+    f:write("error('intentional throw from a_throws.lua')\n")
+    f:close()
+
+    f = io.open(after_dir .. "/b_after.lua", "w")
+    f:write("_G._test_b_ran = true\n")
+    f:close()
+
+    _G._test_b_ran = nil
+    utils.source_after_plugin_files(tmpdir)
+    helpers.flush_pending()
+
+    assert.is_true(_G._test_b_ran == true,
+      "later file must still source after an earlier file throws")
+
+    local saw_notify = false
+    for _, n in ipairs(_G.test_state.notifications) do
+      if n.msg:find("Failed to source.*a_throws%.lua") then
+        saw_notify = true
+        break
+      end
+    end
+    assert.is_true(saw_notify, "throwing file should surface a structured notify")
+
+    _G._test_b_ran = nil
+    vim.fn.delete(tmpdir, "rf")
+  end)
+
   it("skips non-lua non-vim files in nested dirs", function()
     local utils = require('zpack.utils')
     local tmpdir = vim.fn.tempname()

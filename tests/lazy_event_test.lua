@@ -637,4 +637,175 @@ describe("Lazy Loading - Events", function()
     local src = 'https://github.com/test/plugin'
     assert.are.equal("pending", state.spec_registry[src].load_status)
   end)
+
+  -- `User <pattern>` autocmds are matched by literal pattern, not by buffer
+  -- state, so `nvim_exec_autocmds('User', { buffer = ... })` (the old refire
+  -- shape) never fires them. The plugin's own `User LspAttach` handler must
+  -- be re-fired with `pattern = 'LspAttach'`.
+  it("re-fire fires plugin's User <pattern> handlers via pattern dispatch", function()
+    local loader = require('zpack.plugin_loader')
+    local original_process_spec = loader.process_spec
+    local test_group = vim.api.nvim_create_augroup('ZpackTest', { clear = true })
+
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          event = 'User LspAttach',
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    local refire_count = 0
+    loader.process_spec = function(pack_spec)
+      original_process_spec(pack_spec)
+      vim.api.nvim_create_autocmd('User', {
+        group = test_group,
+        pattern = 'LspAttach',
+        callback = function() refire_count = refire_count + 1 end,
+        once = true,
+      })
+    end
+
+    vim.api.nvim_exec_autocmds('User', { pattern = 'LspAttach' })
+
+    helpers.flush_pending()
+
+    assert.are.equal(1, refire_count, "Plugin's User LspAttach handler should fire after lazy-load")
+
+    loader.process_spec = original_process_spec
+    vim.api.nvim_del_augroup_by_id(test_group)
+  end)
+
+  -- ColorScheme autocmds are matched by colorscheme name pattern, not by
+  -- buffer state — same shape as `User <pattern>`. A colorscheme-extending
+  -- plugin lazy-loaded by `event = 'ColorScheme tokyonight'` would load but
+  -- its own `ColorScheme tokyonight` handlers would never fire under buffer
+  -- dispatch.
+  it("re-fire fires plugin's ColorScheme <pattern> handlers via pattern dispatch", function()
+    local loader = require('zpack.plugin_loader')
+    local original_process_spec = loader.process_spec
+    local test_group = vim.api.nvim_create_augroup('ZpackTest', { clear = true })
+
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          event = 'ColorScheme tokyonight',
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    local refire_count = 0
+    loader.process_spec = function(pack_spec)
+      original_process_spec(pack_spec)
+      vim.api.nvim_create_autocmd('ColorScheme', {
+        group = test_group,
+        pattern = 'tokyonight',
+        callback = function() refire_count = refire_count + 1 end,
+        once = true,
+      })
+    end
+
+    vim.api.nvim_exec_autocmds('ColorScheme', { pattern = 'tokyonight' })
+
+    helpers.flush_pending()
+
+    assert.are.equal(1, refire_count, "Plugin's ColorScheme tokyonight handler should fire after lazy-load")
+
+    loader.process_spec = original_process_spec
+    vim.api.nvim_del_augroup_by_id(test_group)
+  end)
+
+  -- Regression: for `event = { 'A', 'FileType' }`, A fires first and loads
+  -- the plugin, but the FileType proxy outlives the load (once=true is per-
+  -- autocmd). When FileType fires naturally, the proxy ALSO fires, calls
+  -- try_process_spec (already-loaded no-op), and refire.exec unconditionally
+  -- re-dispatches FileType — double-firing the plugin's FileType handler.
+  it("event proxy skips refire when sibling event already loaded plugin", function()
+    local test_group = vim.api.nvim_create_augroup('ZpackTest', { clear = true })
+    local ft_fire_count = 0
+
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          event = { 'InsertEnter', 'FileType' },
+          config = function()
+            vim.api.nvim_create_autocmd('FileType', {
+              group = test_group,
+              callback = function() ft_fire_count = ft_fire_count + 1 end,
+            })
+          end,
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    -- Load via InsertEnter first.
+    vim.api.nvim_exec_autocmds('InsertEnter', {})
+    helpers.flush_pending()
+    ft_fire_count = 0
+
+    -- Now fire FileType naturally — should only count once (the plugin's own
+    -- handler firing via natural dispatch), not twice (once natural + once via
+    -- the now-stale FileType proxy's refire).
+    vim.api.nvim_exec_autocmds('FileType', {})
+    helpers.flush_pending()
+
+    assert.are.equal(1, ft_fire_count,
+      "FileType handler must fire exactly once; the stale proxy must not refire")
+
+    vim.api.nvim_del_augroup_by_id(test_group)
+  end)
+
+  -- Regression: `nvim_exec_autocmds('User', {})` (no pattern) reaches the User
+  -- proxy with `ev.match = ''`. Refire must fall back to pattern='*' so the
+  -- plugin's `User '*'` handlers still fire; otherwise the load happens but
+  -- the plugin's own handlers silently never run.
+  it("re-fire falls back to pattern='*' when ev.match is empty for User", function()
+    local loader = require('zpack.plugin_loader')
+    local original_process_spec = loader.process_spec
+    local test_group = vim.api.nvim_create_augroup('ZpackTest', { clear = true })
+
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          event = 'User',
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    local refire_count = 0
+    loader.process_spec = function(pack_spec)
+      original_process_spec(pack_spec)
+      vim.api.nvim_create_autocmd('User', {
+        group = test_group,
+        pattern = '*',
+        callback = function() refire_count = refire_count + 1 end,
+        once = true,
+      })
+    end
+
+    vim.api.nvim_exec_autocmds('User', {})
+    helpers.flush_pending()
+
+    assert.are.equal(1, refire_count,
+      "Plugin's User '*' handler should fire after lazy-load with empty match")
+
+    loader.process_spec = original_process_spec
+    vim.api.nvim_del_augroup_by_id(test_group)
+  end)
 end)

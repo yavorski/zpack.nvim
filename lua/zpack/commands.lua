@@ -150,10 +150,10 @@ Sub.build = {
     end
 
     local pack_spec = state.src_to_pack_spec[pack.spec.src]
-    if pack_spec then
-      require('zpack.plugin_loader').process_spec(pack_spec, { bang = true })
+    if pack_spec and not require('zpack.plugin_loader').try_process_spec(pack_spec, { bang = true }) then
+      return
     end
-    hooks.execute_build(spec.build, registry_entry.plugin)
+    hooks.execute_build(spec.build, registry_entry.plugin, pack.spec.src)
     util.schedule_notify(('Running build hook for %s'):format(plugin_name), vim.log.levels.INFO)
   end,
   complete = function(arg_lead)
@@ -171,19 +171,27 @@ Sub.load = {
         util.schedule_notify(('Use :%s! load to load all unloaded plugins'):format(ctx.cmd_name), vim.log.levels.WARN)
         return
       end
-      local count = vim.tbl_count(state.unloaded_plugin_names)
-      if count == 0 then
+      if vim.tbl_count(state.unloaded_plugin_names) == 0 then
         util.schedule_notify('All plugins are already loaded', vim.log.levels.INFO)
         return
       end
       local loader = require('zpack.plugin_loader')
+      local loaded = 0
       for _, pack_spec in ipairs(state.registered_plugins) do
         local entry = state.spec_registry[pack_spec.src]
         if entry and entry.load_status ~= "loaded" then
-          loader.process_spec(pack_spec)
+          -- Post-check load_status rather than try_process_spec's ok return:
+          -- process_spec returns true for non-load early exits (circular dep,
+          -- plugin == nil) which must not inflate the "Loaded N" message.
+          loader.try_process_spec(pack_spec)
+          if entry.load_status == "loaded" then
+            loaded = loaded + 1
+          end
         end
       end
-      util.schedule_notify(('Loaded %d plugin(s)'):format(count), vim.log.levels.INFO)
+      if loaded > 0 then
+        util.schedule_notify(('Loaded %d plugin(s)'):format(loaded), vim.log.levels.INFO)
+      end
       return
     end
 
@@ -204,8 +212,10 @@ Sub.load = {
     end
 
     local loader = require('zpack.plugin_loader')
-    loader.process_spec(pack.spec, {})
-    util.schedule_notify(('Loaded %s'):format(plugin_name), vim.log.levels.INFO)
+    loader.try_process_spec(pack.spec, {})
+    if registry_entry.load_status == "loaded" then
+      util.schedule_notify(('Loaded %s'):format(plugin_name), vim.log.levels.INFO)
+    end
   end,
   complete = function(arg_lead)
     local names = vim.tbl_keys(state.unloaded_plugin_names)

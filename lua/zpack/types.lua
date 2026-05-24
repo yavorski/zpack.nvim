@@ -63,6 +63,12 @@
 ---@field _import_order? number Internal: Order in which spec was imported
 ---@field _is_dependency? boolean Internal: Whether spec was imported as a dependency
 
+---Plugin load lifecycle state.
+---  `pending` — next trigger will start a load.
+---  `loading` — process_spec body mid-flight; observed only from
+---              synchronous re-entry (e.g. plugin/ files firing autocmds).
+---  `loaded`  — committed after run_config succeeds; apply_keys runs after
+---              this transition so a key-spec throw can't trigger a retry.
 ---@alias zpack.LoadStatus "pending" | "loading" | "loaded"
 
 ---@alias zpack.PluginStatus "pending" | "loading" | "loaded" | "disabled" | "installing"

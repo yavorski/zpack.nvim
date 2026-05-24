@@ -304,32 +304,6 @@ describe("Lazy Loading - Keymaps", function()
     assert.is_truthy(found, "Eager KeySpec should create keymap")
   end)
 
-  it("Lazy proxy keymap is not expr", function()
-    require('zpack').setup({
-      spec = {
-        {
-          'test/plugin',
-          keys = {
-            { '<leader>tx', function() return 'foo' end, expr = true },
-          },
-        },
-      },
-      defaults = { confirm = false },
-    })
-
-    helpers.flush_pending()
-    local keymaps = vim.api.nvim_get_keymap('n')
-    local found = false
-    for _, map in ipairs(keymaps) do
-      if map.lhs == ' tx' then
-        found = true
-        assert.are.equal(0, map.expr)
-        break
-      end
-    end
-    assert.is_truthy(found, "Lazy proxy keymap should be installed")
-  end)
-
   it("KeySpec forwards remap=true alone", function()
     require('zpack').setup({
       spec = {
@@ -606,7 +580,9 @@ describe("Lazy Loading - Keymaps", function()
 
     local proxy = find_map(' txp')
     assert.is_not_nil(proxy, "Proxy keymap should be installed")
-    assert.are.equal(0, proxy.expr)
+    -- Proxy is always expr=1 so operator-pending sequences like di` keep the
+    -- pending operator alive across the lazy-load trigger (see issue #26).
+    assert.are.equal(1, proxy.expr)
 
     vim.api.nvim_feedkeys(' txp', 'mx', false)
     helpers.flush_pending()
@@ -642,5 +618,221 @@ describe("Lazy Loading - Keymaps", function()
 
     pcall(vim.keymap.del, 'n', 'zi')
     pcall(vim.keymap.del, 'n', 'zb')
+  end)
+
+  -- Regression for issue #26: a non-expr Lua proxy cancelled the pending
+  -- operator, so `di`` dropped into Insert and typed a literal backtick.
+  it("Lazy proxy preserves operator-pending state for text objects", function()
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          keys = { { 'i', mode = 'o' } },
+          config = function() end,
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_current_buf(buf)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'foo `bar` baz' })
+    vim.api.nvim_win_set_cursor(0, { 1, 6 })
+
+    vim.api.nvim_feedkeys('di`', 'mx', false)
+    helpers.flush_pending()
+
+    local mode = vim.api.nvim_get_mode().mode
+    local line = vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1]
+
+    assert.are.equal('n', mode, "should remain in normal mode, not fall into Insert")
+    assert.are.equal('foo `` baz', line, "di` should delete the text inside backticks")
+
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  -- Pins natural v:count preservation across the expr proxy callback. The
+  -- typed count remains in effect for the re-fed lhs because expr=true with
+  -- an empty return doesn't reset v:count, so the real keymap sees the
+  -- original count. A future fix that explicitly re-prepends v:count to
+  -- feedkeys would double it (55 instead of 5).
+  it("Lazy proxy preserves v:count across first press", function()
+    local captured = {}
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          keys = { { '<leader>tc' } },
+          config = function()
+            vim.keymap.set('n', '<leader>tc', function()
+              table.insert(captured, vim.v.count)
+            end)
+          end,
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+    vim.api.nvim_feedkeys('5 tc', 'mx', false)
+    helpers.flush_pending()
+
+    assert.are.equal(5, captured[1], "real keymap should see v:count = 5 on first lazy fire")
+
+    pcall(vim.keymap.del, 'n', '<leader>tc')
+  end)
+
+  -- Pins natural v:register preservation, same as count above.
+  it("Lazy proxy preserves v:register across first press", function()
+    local captured = {}
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          keys = { { '<leader>tr' } },
+          config = function()
+            vim.keymap.set('n', '<leader>tr', function()
+              table.insert(captured, vim.v.register)
+            end)
+          end,
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+    vim.api.nvim_feedkeys('"a tr', 'mx', false)
+    helpers.flush_pending()
+
+    assert.are.equal('a', captured[1], "real keymap should see v:register = 'a' on first lazy fire")
+
+    pcall(vim.keymap.del, 'n', '<leader>tr')
+  end)
+
+  -- Pins natural count-between-operator-and-motion preservation. d3<lhs>
+  -- must apply count 3 to the lazy text-object — the expr proxy + <Ignore>
+  -- bridge must not eat it.
+  it("Lazy proxy preserves v:count between operator and motion", function()
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          keys = { { 'X', mode = 'o' } },
+          config = function()
+            -- A custom text-object that selects v:count1 chars to the right.
+            vim.keymap.set('o', 'X', function()
+              vim.cmd('normal! v' .. math.max(vim.v.count1 - 1, 0) .. 'l')
+            end)
+          end,
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_current_buf(buf)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'abcdef' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+    vim.api.nvim_feedkeys('d3X', 'mx', false)
+    helpers.flush_pending()
+
+    local line = vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1]
+    assert.are.equal('def', line, "d3X should delete 3 characters (count preserved across lazy load)")
+
+    vim.api.nvim_buf_delete(buf, { force = true })
+    pcall(vim.keymap.del, 'o', 'X')
+  end)
+
+  -- Regression: when every plugin claiming an lhs throws on load, the proxy
+  -- has already deleted itself and no real keymap replaced it. Re-feeding the
+  -- lhs would type it literally into the buffer (e.g. ` ff` for <leader>ff).
+  it("Lazy proxy bails on feedkeys when every plugin fails to load", function()
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          keys = { { '<leader>tf' } },
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    local original_packadd = vim.cmd.packadd
+    vim.cmd.packadd = function() error("simulated packadd failure", 0) end
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_current_buf(buf)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+    vim.api.nvim_feedkeys(' tf', 'mx', false)
+    helpers.flush_pending()
+
+    vim.cmd.packadd = original_packadd
+
+    local line = vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1]
+    assert.are.equal('', line,
+      "lhs must not be typed into the buffer when every claiming plugin failed to load")
+
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end)
+
+  -- Regression: process_spec swallows apply_keys throws so a key-spec failure
+  -- can't roll back load_status into a retry that double-runs run_config.
+  -- That swallow meant try_process_spec returned ok=true even when the
+  -- pressed lhs ended up unmapped (e.g. malformed rhs threw out of
+  -- apply_keys). The proxy was already deleted, so feedkeys would type the
+  -- lhs literally into the buffer. apply_keys now pcalls per key and the
+  -- proxy bails on feedkeys when its own lhs isn't mapped post-load.
+  it("Lazy proxy bails on feedkeys when the pressed key's spec is malformed", function()
+    require('zpack').setup({
+      spec = {
+        {
+          'test/plugin',
+          keys = {
+            -- Malformed rhs (number): vim.keymap.set raises on this.
+            { '<leader>tm', 42 },
+            { '<leader>tn', '<cmd>echo "ok"<cr>' },
+          },
+        },
+      },
+      defaults = { confirm = false },
+    })
+
+    helpers.flush_pending()
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_current_buf(buf)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '' })
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+    vim.api.nvim_feedkeys(' tm', 'mx', false)
+    helpers.flush_pending()
+
+    local line = vim.api.nvim_buf_get_lines(buf, 0, -1, false)[1]
+    assert.are.equal('', line,
+      "malformed-rhs lhs must not be typed into the buffer after load")
+
+    -- Sibling key with a well-formed rhs should still be registered: per-key
+    -- pcall in apply_keys protects siblings from a single bad spec.
+    local found_sibling = false
+    for _, map in ipairs(vim.api.nvim_get_keymap('n')) do
+      if map.lhs == ' tn' then
+        found_sibling = true
+        break
+      end
+    end
+    assert.is_true(found_sibling,
+      "well-formed sibling key must be registered even when its sibling throws")
+
+    vim.api.nvim_buf_delete(buf, { force = true })
+    pcall(vim.keymap.del, 'n', '<leader>tn')
   end)
 end)

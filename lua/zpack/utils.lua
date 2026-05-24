@@ -132,43 +132,82 @@ M.autocmd = function(event, callback, opts)
   }, opts))
 end
 
----Resolve a field that may be a function
+---Resolve a function-form spec field; a throw becomes a structured notify
+---and a nil return instead of aborting the caller.
 ---@param field any
 ---@param plugin zpack.Plugin?
+---@param src? string Identifier for the failure notify
+---@param field_name? string Which field is being resolved (for the notify)
 ---@return any
-M.resolve_field = function(field, plugin)
-  if type(field) == "function" then
-    return field(plugin)
+M.try_resolve_field = function(field, plugin, src, field_name)
+  if type(field) ~= "function" then
+    return field
   end
-  return field
+  local ok, result = pcall(field, plugin)
+  if not ok then
+    M.schedule_notify(
+      ("Failed to resolve %s for %s: %s"):format(field_name or 'field', src or 'plugin', tostring(result)),
+      vim.log.levels.ERROR
+    )
+    return nil
+  end
+  return result
 end
 
+---Coerce `spec.enabled` to a bool; function-form is pcall'd and a throw
+---is treated as `false` with a structured notify.
 ---@param spec zpack.Spec
+---@param src? string Identifier for the failure notify
 ---@return boolean
-M.check_enabled = function(spec)
+M.check_enabled = function(spec, src)
   local en = spec.enabled
   if en == false then
     return false
   end
-  if type(en) == "function" and not en() then
-    return false
+  if type(en) == "function" then
+    local ok, result = pcall(en)
+    if not ok then
+      M.schedule_notify(
+        ("Failed to evaluate enabled for %s: %s"):format(src or 'plugin', tostring(result)),
+        vim.log.levels.ERROR
+      )
+      return false
+    end
+    if not result then
+      return false
+    end
   end
   return true
 end
 
----Check if spec.cond passes (with optional default fallback)
+---Coerce `spec.cond` (or `default_cond` when nil) to a bool; function-form
+---is pcall'd and a throw is treated as `false` with a structured notify.
 ---@param spec zpack.Spec
 ---@param plugin zpack.Plugin?
 ---@param default_cond? boolean|(fun(plugin: zpack.Plugin):boolean)
+---@param src? string Identifier for the failure notify
 ---@return boolean
-M.check_cond = function(spec, plugin, default_cond)
+M.check_cond = function(spec, plugin, default_cond, src)
   local cond = spec.cond
   if cond == nil then
     cond = default_cond
   end
 
-  if cond == false or (type(cond) == "function" and not cond(plugin)) then
+  if cond == false then
     return false
+  end
+  if type(cond) == "function" then
+    local ok, result = pcall(cond, plugin)
+    if not ok then
+      M.schedule_notify(
+        ("Failed to evaluate cond for %s: %s"):format(src or 'plugin', tostring(result)),
+        vim.log.levels.ERROR
+      )
+      return false
+    end
+    if not result then
+      return false
+    end
   end
   return true
 end
@@ -298,12 +337,19 @@ M.source_after_plugin_files = function(plugin_path)
   if sourced_plugin_paths[plugin_path] then
     return
   end
-  sourced_plugin_paths[plugin_path] = true
 
   local files = vim.fn.glob(plugin_path .. '/after/plugin/**/*.{vim,lua}', false, true)
+  -- Per-file pcall so one broken file doesn't skip its siblings; cache
+  -- marker is set after the loop so the first call always attempts every
+  -- file even if a sibling throws.
   for _, file in ipairs(files) do
-    vim.cmd.source(file)
+    local ok, err = pcall(vim.cmd.source, file)
+    if not ok then
+      M.schedule_notify(("Failed to source %s: %s"):format(file, tostring(err)), vim.log.levels.ERROR)
+    end
   end
+
+  sourced_plugin_paths[plugin_path] = true
 end
 
 return M

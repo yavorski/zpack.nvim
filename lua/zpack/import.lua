@@ -11,10 +11,9 @@ local imported_modules = {}
 ---@return string|nil source URL/path, or nil if invalid
 ---@return string|nil error message if validation fails
 local normalize_source = function(spec)
-  -- Each source field must be a string: a non-string (an over-nested spec, a
-  -- typo) would crash the `[1]` concat or the `dir` expand, or coerce to a
-  -- garbage URL. Fall through to the nil/err result so import_one_spec skips
-  -- it instead of aborting setup().
+  -- Each source field must be a string; a non-string (over-nested spec or
+  -- typo) would crash the `[1]` concat or `dir` expand. Skip rather than
+  -- abort setup().
   if type(spec[1]) == 'string' then
     return 'https://github.com/' .. spec[1]
   elseif type(spec.src) == 'string' then
@@ -192,7 +191,7 @@ local import_one_spec = function(spec, ctx)
   end
 
   if is_import_spec(spec) then
-    if spec.enabled == false or (type(spec.enabled) == "function" and not spec.enabled()) then
+    if not utils.check_enabled(spec, 'import:' .. spec.import) then
       return
     end
     import_from_module(spec.import --[[@as string]], ctx)

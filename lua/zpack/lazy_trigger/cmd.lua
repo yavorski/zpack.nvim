@@ -12,7 +12,7 @@ M.setup = function(registered_pack_specs)
     local spec = registry_entry.merged_spec --[[@as zpack.Spec]]
     local plugin = registry_entry.plugin
 
-    local cmd = util.resolve_field(spec.cmd, plugin)
+    local cmd = util.try_resolve_field(spec.cmd, plugin, pack_spec.name or pack_spec.src, 'cmd')
     if cmd then
       local commands = util.normalize_string_list(cmd) --[[@as string[] ]]
       for _, c in ipairs(commands) do
@@ -24,20 +24,45 @@ M.setup = function(registered_pack_specs)
     end
   end
 
-  -- Create user commands
+  -- Proxy is registered with bang + count=-1 so the cmdline parser accepts
+  -- `:Foo!` / `:1,5Foo` / `:5Foo` without erroring at parse time (which
+  -- would prevent the plugin from ever loading). `register = true` is NOT
+  -- set: it would destructively consume the first arg char as a register,
+  -- corrupting every non-register invocation. Tradeoff: the typed register
+  -- is silently dropped on the first lazy invocation of a register-accepting
+  -- command — subsequent calls go through the real command directly.
   for cmd, pack_specs in pairs(cmd_to_pack_specs) do
     vim.api.nvim_create_user_command(cmd, function(cmd_args)
       pcall(vim.api.nvim_del_user_command, cmd)
 
+      local any_ok = false
       for _, pack_spec in ipairs(pack_specs) do
-        loader.process_spec(pack_spec)
+        if loader.try_process_spec(pack_spec) then
+          any_ok = true
+        end
+      end
+      -- Proxy already self-deleted; nvim_cmd would error with "Not an
+      -- editor command" on top of the per-plugin load-failure notify.
+      if not any_ok then
+        return
       end
 
-      pcall(vim.api.nvim_cmd, {
+      -- Forward range (not count): nvim_cmd auto-translates range to count
+      -- for count-decl commands, but forwarding count to a range-decl
+      -- command errors with "Command cannot accept count".
+      local ok, err = pcall(vim.api.nvim_cmd, {
         cmd = cmd,
         args = cmd_args.fargs,
+        bang = cmd_args.bang,
+        range = (cmd_args.range or 0) > 0
+            and (cmd_args.range == 1 and { cmd_args.line1 } or { cmd_args.line1, cmd_args.line2 })
+            or nil,
+        mods = cmd_args.smods --[[@as vim.api.keyset.cmd.mods]],
       }, {})
-    end, { nargs = '*' })
+      if not ok then
+        util.schedule_notify(("Failed to re-fire :%s: %s"):format(cmd, tostring(err)), vim.log.levels.ERROR)
+      end
+    end, { nargs = '*', bang = true, count = -1 })
   end
 end
 

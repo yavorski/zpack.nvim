@@ -247,7 +247,8 @@ function M.merge_spec_array(specs)
   return result
 end
 
----Resolve opts through all specs, supporting function-based opts
+---Resolve opts through all specs, supporting function-form opts. Throws
+---if any function-form opts throws — callers must pcall.
 ---@param specs zpack.Spec[]
 ---@param plugin zpack.Plugin
 ---@return table
@@ -365,11 +366,11 @@ function M.resolve_all()
   local utils = require('zpack.utils')
   local lazy = require('zpack.lazy')
 
-  for _, entry in pairs(state.spec_registry) do
+  for src, entry in pairs(state.spec_registry) do
     if entry.specs and #entry.specs > 0 then
       entry.sorted_specs = M.sort_specs(entry.specs)
       entry.merged_spec = M.merge_spec_array(entry.sorted_specs)
-      entry.enabled_result = utils.check_enabled(entry.merged_spec)
+      entry.enabled_result = utils.check_enabled(entry.merged_spec, src)
       -- `opts` is deliberately not stored on merged_spec; compute a boolean
       -- summary once here so existence checks in plugin_loader / startup can
       -- answer "does any spec contribute opts?" without re-scanning.

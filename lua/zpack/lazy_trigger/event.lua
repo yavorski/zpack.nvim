@@ -75,24 +75,29 @@ M.setup = function(pack_spec, spec, event)
     local has_very_lazy, other_events = split_very_lazy(normalized_event.events)
 
     if has_very_lazy then
+      -- VeryLazy is synthetic (UIEnter-only); no real event to re-fire.
       util.autocmd("UIEnter", function()
         vim.schedule(function()
-          loader.process_spec(pack_spec)
+          loader.try_process_spec(pack_spec)
         end)
       end, { group = state.lazy_group, once = true })
     end
 
     if #other_events > 0 then
       util.autocmd(other_events, function(ev)
-        local snap = refire.snapshot(ev.event)
-        local ok, err = pcall(loader.process_spec, pack_spec)
-        if not ok then
-          vim.schedule(function()
-            vim.notify(("Failed to load plugin: %s"):format(err), vim.log.levels.ERROR)
-          end)
+        -- Skip when a sibling event/ft has already loaded (or is mid-load,
+        -- when plugin/ files synchronously fire a matching autocmd during
+        -- packadd). "loaded" prevents double-firing via refire's FileType
+        -- branch; "loading" prevents spurious "Circular dependency" notify.
+        local entry = state.spec_registry[pack_spec.src]
+        if entry and entry.load_status ~= "pending" then
           return
         end
-        refire.exec(ev.event, ev.buf, ev.data, snap)
+        local snap = refire.snapshot(ev.event)
+        if not loader.try_process_spec(pack_spec) then
+          return
+        end
+        refire.exec(ev, snap)
       end, { group = state.lazy_group, once = true, pattern = normalized_event.pattern })
     end
   end

@@ -31,12 +31,22 @@ M.map = function(lhs, rhs, opts)
 end
 
 ---@param keys zpack.KeySpec|zpack.KeySpec[]|string
-M.apply_keys = function(keys)
+---@param src string Plugin identifier for the failure notify
+M.apply_keys = function(keys, src)
   local key_list = util.normalize_keys(keys) --[[@as zpack.KeySpec[] ]]
 
   for _, key in ipairs(key_list) do
     if key[2] ~= nil then
-      M.map(key[1], key[2], key)
+      -- pcall per key so one malformed spec doesn't strand its siblings.
+      -- lazy_trigger/keys.lua's post-load maparg gate ensures an unmapped
+      -- lhs doesn't fall through to bare keystrokes typed in the buffer.
+      local ok, err = pcall(M.map, key[1], key[2], key)
+      if not ok then
+        util.schedule_notify(
+          ("Failed to map %s for %s: %s"):format(key[1], src, tostring(err)),
+          vim.log.levels.ERROR
+        )
+      end
     end
   end
 end

@@ -33,14 +33,25 @@ end
 
 ---@param build string|fun(plugin: zpack.Plugin?)
 ---@param plugin zpack.Plugin?
-M.execute_build = function(build, plugin)
+---@param src string Plugin identifier for the failure notify
+M.execute_build = function(build, plugin, src)
+  local function notify_failure(err)
+    util.schedule_notify(("Failed to run build for %s: %s"):format(src, tostring(err)), vim.log.levels.ERROR)
+  end
+
   if type(build) == "string" then
     vim.schedule(function()
-      vim.cmd(build)
+      local ok, err = pcall(function() vim.cmd(build) end)
+      if not ok then
+        notify_failure(err)
+      end
     end)
   elseif type(build) == "function" then
     vim.schedule(function()
-      build(plugin)
+      local ok, err = pcall(build, plugin)
+      if not ok then
+        notify_failure(err)
+      end
     end)
   end
 end
@@ -81,10 +92,10 @@ M.setup_lazy_build_tracking = function()
       local spec = registry_entry and registry_entry.merged_spec
       if spec and spec.build then
         local pack_spec = state.src_to_pack_spec[src]
-        if pack_spec then
-          require('zpack.plugin_loader').process_spec(pack_spec, { bang = true })
+        if pack_spec and not require('zpack.plugin_loader').try_process_spec(pack_spec, { bang = true }) then
+          return
         end
-        M.execute_build(spec.build, registry_entry.plugin)
+        M.execute_build(spec.build, registry_entry.plugin, src)
       end
     end
   end, { group = state.lazy_build_group })
@@ -102,10 +113,10 @@ M.run_pending_builds_on_startup = function(ctx)
     local spec = entry and entry.merged_spec
     if spec and spec.build then
       local pack_spec = state.src_to_pack_spec[src]
-      if pack_spec then
-        loader.process_spec(pack_spec, { bang = not ctx.load })
+      local load_ok = pack_spec == nil or loader.try_process_spec(pack_spec, { bang = not ctx.load })
+      if load_ok then
+        M.execute_build(spec.build, entry.plugin, src)
       end
-      M.execute_build(spec.build, entry.plugin)
     end
   end
 
@@ -120,11 +131,11 @@ M.run_all_builds = function()
     local spec = entry.merged_spec
     if spec and spec.build then
       local pack_spec = state.src_to_pack_spec[src]
-      if pack_spec then
-        loader.process_spec(pack_spec, { bang = true })
+      local load_ok = pack_spec == nil or loader.try_process_spec(pack_spec, { bang = true })
+      if load_ok then
+        M.execute_build(spec.build, entry.plugin, src)
+        count = count + 1
       end
-      M.execute_build(spec.build, entry.plugin)
-      count = count + 1
     end
   end
 

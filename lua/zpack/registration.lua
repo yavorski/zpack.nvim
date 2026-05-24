@@ -25,7 +25,7 @@ M.register_all = function(ctx)
 
       registry_entry.is_lazy_resolved = lazy.is_lazy(spec, plugin, pack_spec.src)
 
-      registry_entry.cond_result = utils.check_cond(spec, plugin, ctx.defaults.cond)
+      registry_entry.cond_result = utils.check_cond(spec, plugin, ctx.defaults.cond, pack_spec.src)
       if not registry_entry.cond_result then
         return
       end

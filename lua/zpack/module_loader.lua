@@ -302,11 +302,16 @@ function M.loader(modname)
 
   currently_loading_sources[src] = true
   local process_start = profiling.loader and get_time() or 0
-  require('zpack.plugin_loader').process_spec(pack_spec, { bang = true })
+  -- Clear the flag unconditionally so a throw doesn't wedge later
+  -- requires into the early-return above. Re-raise for caller.
+  local ok, err = pcall(require('zpack.plugin_loader').process_spec, pack_spec, { bang = true })
   if profiling.loader then
     profile.process_spec_time = profile.process_spec_time + (get_time() - process_start)
   end
   currently_loading_sources[src] = nil
+  if not ok then
+    error(err, 0)
+  end
 
   if topmod then
     topmod_to_plugin_sources[topmod] = nil

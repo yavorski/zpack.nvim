@@ -11,15 +11,18 @@ M.setup = function(pack_spec, ft)
   local filetypes = util.normalize_string_list(ft)
 
   util.autocmd("FileType", function(ev)
-    local snap = refire.snapshot("FileType")
-    local ok, err = pcall(loader.process_spec, pack_spec)
-    if not ok then
-      vim.schedule(function()
-        vim.notify(("Failed to load plugin: %s"):format(err), vim.log.levels.ERROR)
-      end)
+    -- Same gate as lazy_trigger/event.lua: skip when a sibling already
+    -- loaded (avoid double-fire) or is mid-load (avoid spurious circular-
+    -- dependency notify).
+    local entry = state.spec_registry[pack_spec.src]
+    if entry and entry.load_status ~= "pending" then
       return
     end
-    refire.exec("FileType", ev.buf, ev.data, snap)
+    local snap = refire.snapshot("FileType")
+    if not loader.try_process_spec(pack_spec) then
+      return
+    end
+    refire.exec(ev, snap)
   end, { group = state.lazy_group, pattern = filetypes, once = true })
 end
 
