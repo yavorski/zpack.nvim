@@ -70,16 +70,14 @@ zpack provides a single user command, `:ZPack`, with subcommands. Rename via [`c
 
 | Command | Description |
 | --- | --- |
-| `:ZPack[!] update [plugin]` | Update all plugins, or one |
-| `:ZPack[!] restore [plugin]` | Restore plugins to the lockfile state |
+| `:ZPack[!] update [plugin]` | Update all plugins, or one; `!` skips the confirm buffer |
+| `:ZPack[!] restore [plugin]` | Restore plugins to the lockfile state; `!` skips the confirm buffer |
 | `:ZPack clean` | Remove plugins no longer in your spec |
-| `:ZPack[!] build [plugin]` | Run a plugin's build hook |
-| `:ZPack[!] load [plugin]` | Load an unloaded plugin |
-| `:ZPack[!] delete [plugin]` | Remove a plugin |
+| `:ZPack[!] build [plugin]` | Run a plugin's build hook; `!` runs every plugin's build hook |
+| `:ZPack[!] load [plugin]` | Load an unloaded plugin; `!` loads all unloaded plugins |
+| `:ZPack[!] delete [plugin]` | Remove a plugin; `!` removes all plugins |
 | `:ZPack sync` | Bulk update + clean (lazy.nvim parity) |
 | `:ZPack reload {plugin}` | Re-source a plugin (lazy.nvim parity) |
-
-`!` skips the confirm buffer for `update`/`restore`, or operates on all plugins for `build`/`load`/`delete`.
 
 See **[Commands](docs/commands.md)** for more details.
 
