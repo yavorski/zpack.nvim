@@ -66,11 +66,11 @@ return {
 
 #### Commands
 
-zpack provides a single user command, `:ZPack`, with subcommands (rename via [`cmd_name`](#configurations)):
+zpack provides a single user command, `:ZPack`, with subcommands. Rename via [`cmd_name`](#configurations) — a short name like `Z` or `Zp` is recommended for ease of use (`:Z update`, `:Zp clean`).
 
 | Command | Description |
 | --- | --- |
-| `:ZPack[!] update [plugin]` | Update all plugins, or one (`!` skips the confirm buffer) |
+| `:ZPack[!] update [plugin]` | Update all plugins, or one |
 | `:ZPack[!] restore [plugin]` | Restore plugins to the lockfile state |
 | `:ZPack clean` | Remove plugins no longer in your spec |
 | `:ZPack[!] build [plugin]` | Run a plugin's build hook |
@@ -79,7 +79,9 @@ zpack provides a single user command, `:ZPack`, with subcommands (rename via [`c
 | `:ZPack sync` | Bulk update + clean (lazy.nvim parity) |
 | `:ZPack reload {plugin}` | Re-source a plugin (lazy.nvim parity) |
 
-See **[Commands](docs/commands.md)** for full details, `!` semantics, tab completion, and `vim.pack` 0.13+ native equivalents.
+`!` skips the confirm buffer for `update`/`restore`, or operates on all plugins for `build`/`load`/`delete`.
+
+See **[Commands](docs/commands.md)** for more details.
 
 
 #### Health Check
