@@ -9,7 +9,7 @@
 
 A thin layer on top of Neovim's native `vim.pack`, adding support for lazy-loading and the widely adopted lazy.nvim-like declarative spec.
 
-**[Why zpack?](#why-zpack)** | **[Commands](docs/commands.md)** | **[Spec Examples](docs/examples.md)** | **[Spec Reference](docs/spec.md)** | **[Tips & Migration](docs/tips.md)**
+**[Why zpack?](#why-zpack)** | **[Commands](#commands)** | **[Spec Examples](docs/examples.md)** | **[Spec Reference](docs/spec.md)** | **[Tips & Migration](docs/tips.md)**
 
 ## Requirements
 
@@ -78,8 +78,6 @@ zpack provides a single user command, `:ZPack`, with subcommands. Rename via [`c
 | `:ZPack[!] delete [plugin]` | Remove a plugin; `!` removes all plugins |
 | `:ZPack sync` | Bulk update + clean (lazy.nvim parity) |
 | `:ZPack reload {plugin}` | Re-source a plugin (lazy.nvim parity) |
-
-See **[Commands](docs/commands.md)** for more details.
 
 
 #### Health Check

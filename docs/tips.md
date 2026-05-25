@@ -56,4 +56,4 @@ require('noice').setup({
 
 ## Native vim.pack commands
 
-On Neovim 0.13+, the `:ZPack update`, `restore`, and `delete` subcommands have native `vim.pack` command equivalents (`:packupdate`, `:packupdate ++lockfile`, `:packdel`). Use whichever you prefer — zpack keeps its session state in sync either way. See [Commands](commands.md#native-vimpack-equivalents-neovim-013) for the full mapping.
+On Neovim 0.13+, the `:ZPack update`, `restore`, and `delete` subcommands have native `vim.pack` command equivalents (`:packupdate`, `:packupdate ++lockfile`, `:packdel`). Use whichever you prefer — zpack keeps its session state in sync either way. See `:h zpack-native-commands` for the full mapping.
