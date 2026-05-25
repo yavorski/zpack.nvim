@@ -80,14 +80,6 @@ zpack provides a single user command, `:ZPack`, with subcommands. Rename via [`c
 | `:ZPack reload {plugin}` | Re-source a plugin (lazy.nvim parity) |
 
 
-#### Health Check
-
-Run `:checkhealth zpack` to diagnose a broken or unexpected setup. It verifies
-the Neovim version and `vim.pack` availability, whether `setup()` was called,
-validates your configuration (flagging deprecated options), and prints a
-status summary of every registered plugin.
-
-
 #### Configurations
 
 ```lua
