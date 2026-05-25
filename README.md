@@ -9,7 +9,7 @@
 
 A thin layer on top of Neovim's native `vim.pack`, adding support for lazy-loading and the widely adopted lazy.nvim-like declarative spec.
 
-**[Why zpack?](#why-zpack)** | **[Spec Examples](docs/examples.md)** | **[Spec Reference](docs/spec.md)** | **[Tips & Migration](docs/tips.md)**
+**[Why zpack?](#why-zpack)** | **[Commands](docs/commands.md)** | **[Spec Examples](docs/examples.md)** | **[Spec Reference](docs/spec.md)** | **[Tips & Migration](docs/tips.md)**
 
 ## Requirements
 
@@ -66,34 +66,20 @@ return {
 
 #### Commands
 
-zpack provides a single user command, `:ZPack`, with subcommands. The command
-name is configurable via the `cmd_name` option — a short name like `Z` or `Zp`
-is recommended for ease of use.
+zpack provides a single user command, `:ZPack`, with subcommands (rename via [`cmd_name`](#configurations)):
 
-- `:ZPack[!] update [plugin]` - Update all plugins, or a specific plugin if provided (supports tab completion). `!` applies updates immediately, skipping the confirmation buffer. Honors `pin = true` for bulk updates. See `:h vim.pack.update()`
-- `:ZPack[!] restore [plugin]` - Restore all plugins, or a specific plugin, to the lockfile state (supports tab completion). `!` applies the restore immediately, skipping the confirmation buffer. Requires a lockfile to exist (created automatically by `:ZPack update`). See `:h vim.pack.update()`
-- `:ZPack clean` - Remove plugins that are no longer in your spec
-- `:ZPack[!] build [plugin]` - Run build hook for a specific plugin, or all plugins with `!` (supports tab completion)
-- `:ZPack[!] load [plugin]` - Load a specific unloaded plugin, or all unloaded plugins with `!` (supports tab completion)
-- `:ZPack[!] delete [plugin]` - Remove a specific plugin, or all plugins with `!` (supports tab completion)
-  - Deleting active plugins in your spec can result in errors in your current session. Restart Neovim to re-install them.
-- `:ZPack sync` - Bulk update + clean in one step (always force-applies; use `:ZPack update` without `!` for a preview). lazy.nvim parity for `:Lazy sync`
-- `:ZPack reload {plugin}` - Re-source a plugin (runs `deactivate`, clears `package.loaded`, re-runs config). lazy.nvim parity for `:Lazy reload`
-
-On Neovim 0.13+, several subcommands map to native `vim.pack` commands you can use interchangeably:
-
-| `:ZPack` | Neovim 0.13+ native |
+| Command | Description |
 | --- | --- |
-| `:ZPack update [plugin]` | `:packupdate [plugin]` |
-| `:ZPack! update [plugin]` | `:packupdate! [plugin]` |
-| `:ZPack restore [plugin]` | `:packupdate ++lockfile [plugin]` |
-| `:ZPack! restore [plugin]` | `:packupdate! ++lockfile [plugin]` |
-| `:ZPack delete {plugin}` | `:packdel! {plugin}` |
-| `:ZPack! delete` | `:packdel! ++all` |
+| `:ZPack[!] update [plugin]` | Update all plugins, or one (`!` skips the confirm buffer) |
+| `:ZPack[!] restore [plugin]` | Restore plugins to the lockfile state |
+| `:ZPack clean` | Remove plugins no longer in your spec |
+| `:ZPack[!] build [plugin]` | Run a plugin's build hook |
+| `:ZPack[!] load [plugin]` | Load an unloaded plugin |
+| `:ZPack[!] delete [plugin]` | Remove a plugin |
+| `:ZPack sync` | Bulk update + clean (lazy.nvim parity) |
+| `:ZPack reload {plugin}` | Re-source a plugin (lazy.nvim parity) |
 
-`:ZPack! delete` removes only zpack-managed plugins, while `:packdel! ++all` removes *every* installed plugin (including any absent from your spec).
-
-`clean`, `build`, and `load` have no native equivalent. The `:ZPack` subcommands are concise, consistent shortcuts — reach for the native commands when you want their extra flags (e.g. `:packupdate ++offline`).
+See **[Commands](docs/commands.md)** for full details, `!` semantics, tab completion, and `vim.pack` 0.13+ native equivalents.
 
 
 #### Health Check
