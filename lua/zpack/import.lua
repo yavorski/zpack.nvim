@@ -6,11 +6,64 @@ local M = {}
 
 local imported_modules = {}
 
----Normalize plugin source using priority: [1] > src > url > dir
+---Resolve `spec.dev == true` to a local path under `config.dev.path`. Returns
+---nil when dev is not requested or when no name source can be derived. When
+---the resolved dev path exists, it is used; when missing and `dev.fallback`
+---is true, returns nil so the caller falls through to the regular source.
+---@param spec zpack.Spec
+---@return string|nil dev_path
+local function resolve_dev_path(spec)
+  if spec.dev ~= true then
+    return nil
+  end
+  -- validate_config is advisory, so a bad value can reach here. Coerce to
+  -- defaults rather than feed vim.fn.expand(false) → 'v:false' as a path.
+  local dev_config = state.config.dev or {}
+  local dev_path_opt = type(dev_config.path) == 'string' and dev_config.path or '~/projects'
+  -- Strip trailing slash so registry keys do not drift between sessions
+  -- with vs. without the trailing slash on `dev.path`.
+  local dev_base = vim.fn.expand(dev_path_opt):gsub('/+$', '')
+  -- `spec.name` first: lazy.nvim parity for overriding the derived dir.
+  local source_for_name = spec.name or spec[1] or spec.src or spec.url or spec.dir
+  if type(source_for_name) ~= 'string' then
+    require('zpack.utils').schedule_notify(
+      ('dev = true on spec "%s" requires a source field (name/[1]/src/url/dir) to derive the local checkout name')
+        :format(validate.spec_label(spec)),
+      vim.log.levels.ERROR
+    )
+    return nil
+  end
+  local derived = require('zpack.utils').derive_name_from_src(source_for_name)
+  if derived == '' then
+    return nil
+  end
+  local dev_path = dev_base .. '/' .. derived
+  local stat = vim.uv.fs_stat(dev_path)
+  if stat and stat.type == 'directory' then
+    return dev_path
+  end
+  -- Missing or non-directory local checkout: `fallback = true` lets the
+  -- caller try the regular source; otherwise we still return the dev path
+  -- so vim.pack's error message points the user at the bad local checkout.
+  if dev_config.fallback == true then
+    return nil
+  end
+  return dev_path
+end
+
+---Normalize plugin source using priority: dev > [1] > src > url > dir
 ---@param spec zpack.Spec
 ---@return string|nil source URL/path, or nil if invalid
 ---@return string|nil error message if validation fails
 local normalize_source = function(spec)
+  -- lazy.nvim spec parity: `dev = true` rewrites the source to a local
+  -- checkout under `config.dev.path` (default '~/projects'). When the local
+  -- directory is missing and `fallback = true` is set, resolution falls
+  -- through to the regular [1]/src/url/dir chain below.
+  local dev_path = resolve_dev_path(spec)
+  if dev_path then
+    return dev_path
+  end
   -- Each source field must be a string; a non-string (over-nested spec or
   -- typo) would crash the `[1]` concat or `dir` expand. Skip rather than
   -- abort setup().
@@ -54,13 +107,15 @@ local is_single_spec = function(value)
   return false
 end
 
----Check if spec is an import spec. A non-string `import` is not one: it cannot
----name a module directory, so the spec falls through to plugin-spec handling
----where the bad `import` is an advisory-only error (reported by validate_spec).
+---Check if spec is an import spec. lazy.nvim parity: `import` accepts either
+---a module-path string (walked as a Lua module directory) or a function
+---returning a spec list (dynamic spec generation). A non-string/function
+---`import` falls through to plugin-spec handling where the bad `import` is
+---an advisory-only error (reported by validate_spec).
 ---@param spec zpack.Spec
 ---@return boolean
 local is_import_spec = function(spec)
-  return type(spec.import) == 'string'
+  return type(spec.import) == 'string' or type(spec.import) == 'function'
 end
 
 ---Normalize dependencies to spec array
@@ -191,10 +246,36 @@ local import_one_spec = function(spec, ctx)
   end
 
   if is_import_spec(spec) then
-    if not utils.check_enabled(spec, 'import:' .. spec.import) then
+    local label = 'import:' .. (type(spec.import) == 'string' and spec.import or '<function>')
+    if not utils.check_enabled(spec, label) then
       return
     end
-    import_from_module(spec.import --[[@as string]], ctx)
+    if type(spec.import) == 'string' then
+      import_from_module(spec.import --[[@as string]], ctx)
+    else
+      -- Per-setup() visited set guards against
+      -- `f = function() return { { import = f } } end` self-recursion.
+      ctx._imported_functions = ctx._imported_functions or {}
+      if ctx._imported_functions[spec.import] then
+        return
+      end
+      ctx._imported_functions[spec.import] = true
+      local ok, result = pcall(spec.import --[[@as fun(): any]])
+      if not ok then
+        utils.schedule_notify(
+          ('zpack: import function threw: %s'):format(tostring(result)),
+          vim.log.levels.ERROR
+        )
+      elseif type(result) == 'table' then
+        M.import_specs(result, ctx)
+      else
+        -- Mirror load_spec_module's non-table-return notify.
+        utils.schedule_notify(
+          ('zpack: import function returned non-table (%s)'):format(type(result)),
+          vim.log.levels.WARN
+        )
+      end
+    end
     return
   end
 
@@ -222,6 +303,13 @@ local import_one_spec = function(spec, ctx)
   -- the merged truth. prune_disabled_subtrees handles cleanup afterward.
   if spec.dependencies then
     register_dependencies(spec, src, ctx)
+  end
+
+  -- Nested `specs` are peer plugins; reset is_dependency so a parent
+  -- reached via a `dependencies` chain doesn't propagate dep-status down.
+  if spec.specs then
+    local peer_ctx = vim.tbl_extend('force', ctx, { is_dependency = false })
+    M.import_specs(spec.specs, peer_ctx)
   end
 end
 

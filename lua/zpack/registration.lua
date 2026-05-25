@@ -9,6 +9,7 @@ M.register_all = function(ctx)
   local ok, err = pcall(vim.pack.add, ctx.vim_packs, {
     confirm = ctx.confirm,
     load = function(plugin)
+      ---@cast plugin zpack.Plugin
       local pack_spec = plugin.spec
       local registry_entry = state.spec_registry[pack_spec.src]
 
@@ -21,6 +22,33 @@ M.register_all = function(ctx)
       state.src_to_pack_spec[pack_spec.src] = pack_spec
       if pack_spec.name then
         state.name_to_src[pack_spec.name] = pack_spec.src
+      end
+
+      -- lazy.nvim spec parity: callbacks (init/config/opts/cond/build/deactivate)
+      -- receive a plugin object whose introspection fields (`name`, `dir`,
+      -- `dependencies`) match LazyPlugin's shape. zpack's existing `spec` /
+      -- `path` fields are preserved; the new fields are additive aliases.
+      -- `dependencies` is a sorted list of resolved dependency names so the
+      -- value is stable across runs even though dependency_graph is a set.
+      plugin.name = pack_spec.name
+      plugin.dir = plugin.path
+      local dep_set = state.dependency_graph[pack_spec.src]
+      if dep_set then
+        local dep_names = {}
+        for dep_src in pairs(dep_set) do
+          -- Skip deps that prune_disabled dropped (e.g. `optional = true`
+          -- with no required reference) so the user doesn't see a name
+          -- they can never load.
+          local dep_entry = state.spec_registry[dep_src]
+          if dep_entry and dep_entry.merged_spec then
+            table.insert(dep_names, dep_entry.merged_spec.name
+              or utils.derive_name_from_src(dep_src))
+          end
+        end
+        table.sort(dep_names)
+        plugin.dependencies = dep_names
+      else
+        plugin.dependencies = {}
       end
 
       registry_entry.is_lazy_resolved = lazy.is_lazy(spec, plugin, pack_spec.src)

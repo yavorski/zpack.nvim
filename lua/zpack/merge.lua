@@ -407,6 +407,31 @@ function M.resolve_all()
     end
   end
 
+  -- lazy.nvim spec parity (`optional = true`): include the plugin only if
+  -- referenced non-optionally somewhere. A dep declaration
+  -- (`_is_dependency = true`) defeats `optional` — naming a plugin as a
+  -- dep IS a non-optional reference. Without that, a table-form dep
+  -- `{ 'foo/x', optional = true }` would prune `x` and cascade-disable
+  -- its parent.
+  for src, entry in pairs(state.spec_registry) do
+    if entry.specs and #entry.specs > 0 and entry.enabled_result ~= false then
+      local has_required = false
+      for _, s in ipairs(entry.specs) do
+        if not s.optional or s._is_dependency then
+          has_required = true
+          break
+        end
+      end
+      if not has_required then
+        entry.enabled_result = false
+        utils.schedule_notify(
+          ("%s skipped: declared `optional = true` and never referenced elsewhere"):format(src),
+          vim.log.levels.DEBUG
+        )
+      end
+    end
+  end
+
   propagate_enabled_disable(state, utils)
   prune_disabled(state)
 
@@ -444,7 +469,7 @@ function M.resolve_all()
       local pack_spec = {
         src = src,
         version = utils.normalize_version(entry.merged_spec),
-        name = entry.merged_spec.name,
+        name = entry.merged_spec.name or utils.derive_name_from_src(src),
       }
       table.insert(vim_packs, pack_spec)
       state.src_to_pack_spec[src] = pack_spec

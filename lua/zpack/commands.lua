@@ -30,6 +30,51 @@ local is_registered_or_notify = function(plugin_name)
   return true
 end
 
+---Build the explicit name list for `vim.pack.update` when any plugin is
+---pinned. Seeded from vim.pack.get so pinning one plugin doesn't narrow
+---the universe past zpack-managed plugins. Returns nil when nothing is
+---pinned so callers take vim.pack.update's default "everything" path.
+---@return string[]? names nil when nothing is pinned
+local function names_for_bulk_update()
+  local pinned_names = {}
+  local zpack_pinned_by_user = false
+  local has_pin = false
+  for _, entry in pairs(state.spec_registry) do
+    if entry.merged_spec and entry.merged_spec.pin == true then
+      has_pin = true
+      local name = entry.merged_spec.name
+          or (entry.plugin and entry.plugin.spec and entry.plugin.spec.name)
+      if name then
+        pinned_names[name] = true
+        if name == 'zpack.nvim' then
+          zpack_pinned_by_user = true
+        end
+      end
+    end
+  end
+  if not has_pin then
+    return nil
+  end
+
+  local names = {}
+  local seen = {}
+  if not zpack_pinned_by_user then
+    table.insert(names, 'zpack.nvim')
+    seen['zpack.nvim'] = true
+  end
+  local installed_ok, installed = pcall(vim.pack.get, nil, { info = false })
+  if installed_ok and installed then
+    for _, pack in ipairs(installed) do
+      local name = pack.spec and pack.spec.name
+      if name and not pinned_names[name] and not seen[name] then
+        table.insert(names, name)
+        seen[name] = true
+      end
+    end
+  end
+  return names
+end
+
 -- Branches avoid passing trailing nils because vim.pack.update uses
 -- select('#', ...) to distinguish "no args" from "nil args".
 local run_pack_update = function(plugin_name, update_opts, error_prefix)
@@ -37,6 +82,12 @@ local run_pack_update = function(plugin_name, update_opts, error_prefix)
   if plugin_name ~= '' then
     if not is_registered_or_notify(plugin_name) then return end
     names = { plugin_name }
+  else
+    -- lazy.nvim spec parity (`pin = true`): bulk update honors pin by
+    -- filtering pinned plugins out of the explicit name list. When nothing
+    -- is pinned, `names_for_bulk_update` returns nil and we fall back to
+    -- vim.pack.update's default "everything" path.
+    names = names_for_bulk_update()
   end
   local ok, err
   if names and update_opts then
@@ -259,7 +310,8 @@ Sub.delete = {
       return
     end
 
-    vim.pack.del({ plugin_name }, { force = true })
+    -- pack.spec.name is canonical (case-insensitive FS safety).
+    vim.pack.del({ pack.spec.name }, { force = true })
     util.schedule_notify(
       ('%s deleted. This can result in errors in your current session. Restart Neovim to re-install it or remove it from your spec.')
       :format(plugin_name),
@@ -271,8 +323,111 @@ Sub.delete = {
   end,
 }
 
+-- Always force-applies: vim.pack.update's confirm buffer returns immediately,
+-- so a no-force form would race clean_unused ahead of the user's response.
+-- For a preview, use `:ZPack update` (no bang) first.
+Sub.sync = {
+  run = function()
+    run_pack_update('', { force = true }, 'Sync update failed')
+    M.clean_unused()
+  end,
+}
+
+-- lazy.nvim parity: `:ZPack reload <plugin>` runs the plugin's
+-- `deactivate` hook (if defined), drops its `package.loaded` modules so
+-- next require triggers a fresh load, resets the registry's load_status
+-- to 'pending', and re-runs process_spec. Pair with the deactivate hook
+-- which is now an accepted spec field.
+Sub.reload = {
+  takes_arg = true,
+  run = function(ctx)
+    local plugin_name = ctx.arg
+    if plugin_name == '' then
+      util.schedule_notify(('Usage: :%s reload <plugin>'):format(ctx.cmd_name), vim.log.levels.WARN)
+      return
+    end
+    local pack = get_installed_or_notify(plugin_name)
+    if not pack then return end
+
+    local registry_entry = state.spec_registry[pack.spec.src]
+    if not registry_entry or not registry_entry.merged_spec then
+      util.schedule_notify(('Plugin "%s" not in zpack registry'):format(plugin_name), vim.log.levels.ERROR)
+      return
+    end
+
+    -- Mid-load reload would slip past process_spec's circular-dep guard.
+    if registry_entry.load_status == 'loading' then
+      util.schedule_notify(
+        ('Cannot reload %s: plugin is currently loading'):format(plugin_name),
+        vim.log.levels.WARN
+      )
+      return
+    end
+
+    local spec = registry_entry.merged_spec --[[@as zpack.Spec]]
+    local plugin = registry_entry.plugin
+
+    -- Skip deactivate when plugin is nil (never-loaded / install-failed):
+    -- deactivate(nil) would force user code to nil-guard. A throw is caught
+    -- and surfaced so a broken deactivate doesn't strand the reload.
+    if plugin and type(spec.deactivate) == 'function' then
+      local ok, err = pcall(spec.deactivate, plugin)
+      if not ok then
+        util.schedule_notify(
+          ('Failed to run deactivate hook for %s: %s'):format(plugin_name, tostring(err)),
+          vim.log.levels.WARN
+        )
+      end
+    end
+
+    -- Drop modules whose file lives under THIS plugin's lua/. The fs_stat
+    -- is the sibling-plugin disambiguator (e.g. telescope-fzf-native's
+    -- `telescope.extensions.fzf`); the `main` prefix is an optimization,
+    -- skipped when utils.resolve_main caches a not-found result.
+    local lua_dir = plugin and plugin.path and (plugin.path .. '/lua') or nil
+    if lua_dir then
+      local main = plugin and require('zpack.utils').resolve_main(plugin, spec) or nil
+      local prefix = main and main ~= '' and (main .. '.') or nil
+      for key in pairs(package.loaded) do
+        if type(key) == 'string' then
+          local in_namespace = prefix == nil
+              or key == main
+              or key:sub(1, #prefix) == prefix
+          if in_namespace then
+            local rel = key:gsub('%.', '/')
+            if vim.uv.fs_stat(lua_dir .. '/' .. rel .. '.lua')
+                or vim.uv.fs_stat(lua_dir .. '/' .. rel .. '/init.lua') then
+              package.loaded[key] = nil
+            end
+          end
+        end
+      end
+    end
+
+    -- init runs once at startup; reload re-runs it (fresh-load contract).
+    -- Type-guard: try_call_hook ERRORs on a missing hook, and startup's
+    -- caller pre-filters via ctx.src_with_init.
+    if type(spec.init) == 'function' then
+      hooks.try_call_hook(pack.spec.src, 'init')
+    end
+
+    -- Prefer src_to_pack_spec over pack.spec: process_spec keys on the
+    -- former (the merged form), and pack.spec is the minimal vim.pack form.
+    registry_entry.load_status = 'pending'
+    state.unloaded_plugin_names[pack.spec.name] = true
+    local pack_spec = state.src_to_pack_spec[pack.spec.src] or pack.spec
+    require('zpack.plugin_loader').try_process_spec(pack_spec, {})
+    if registry_entry.load_status == 'loaded' then
+      util.schedule_notify(('Reloaded %s'):format(plugin_name), vim.log.levels.INFO)
+    end
+  end,
+  complete = function(arg_lead)
+    return filter_completions(state.registered_plugin_names, arg_lead)
+  end,
+}
+
 -- Ordered list used for completion and usage messages.
-local SUB_ORDER = { 'update', 'restore', 'clean', 'build', 'load', 'delete' }
+local SUB_ORDER = { 'update', 'restore', 'clean', 'build', 'load', 'delete', 'sync', 'reload' }
 
 -- Guard against SUB_ORDER drifting out of sync with the Sub table.
 do

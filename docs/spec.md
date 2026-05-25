@@ -25,7 +25,13 @@
   init = function(plugin) end,          -- Runs before plugin loads, useful for certain vim plugins
   config = function(plugin, opts) end,  -- Runs after plugin loads, receives resolved opts
   -- config = true,                      -- Calls require(main).setup({})
-  build = string|function(plugin),      -- Build command or function
+  build = string|function(plugin)       -- Build step:
+        | (string|function(plugin))[]   --   - ':<ex>' runs as an ex-command
+        | false,                        --   - other strings run via $SHELL in plugin dir
+                                        --   - functions receive the plugin
+                                        --   - arrays run each entry in order
+                                        --   - `false` opts out (lazy.nvim parity)
+  deactivate = function(plugin) end,    -- Teardown hook for :ZPack reload (lazy.nvim parity)
 
   -- Lazy loading triggers (auto-sets lazy=true unless overridden)
   -- All triggers can also be functions that receive zpack.Plugin and return the respective type
@@ -38,6 +44,7 @@
   -- Source control (version for `vim.pack.add`, string|vim.VersionRange)
   version = "main",                     -- Git branch, tag, or commit
   -- version = vim.version.range("1.*"), -- Or semver range via vim.version.range()
+  -- version = false,                    -- Opt out of versioning (lazy.nvim escape hatch)
 
   -- Source control (lazy.nvim compat, mapped to version)
   sem_version = "^1.0.0",               -- Semver string (corresponds to lazy.nvim spec's version), auto-wrapped to vim.version.range()
@@ -50,8 +57,15 @@
   main = "module.name",                 -- Explicit main module (auto-detected if not set)
   module = false,                       -- Disable module-based lazy loading for this plugin
 
+  -- lazy.nvim spec parity flags
+  pin = true,                           -- Exclude from :ZPack update bulk runs
+  optional = true,                      -- Only install if also referenced elsewhere non-optionally
+  dev = true,                           -- Use local checkout under setup({ dev = { path = '~/projects' } })
+  specs = { { 'companion/plugin' } },   -- Companion plugin specs grouped with this one
+
   -- Spec imports
   import = "plugins.lsp",               -- Import from lua/{path}/*.lua and lua/{path}/*/init.lua
+  -- import = function() return { ... } end, -- Or a function returning a spec list (lazy.nvim parity)
 }
 ```
 
@@ -63,6 +77,10 @@ The plugin data object passed to hooks and trigger functions:
 {
   spec = vim.pack.Spec,           -- The resolved vim.pack spec (name, src, version)
   path = string,                  -- Absolute path to the plugin directory
+  name = string,                  -- Resolved plugin name (alias for spec.name, lazy.nvim parity)
+  dir = string,                   -- Plugin directory (alias for path, lazy.nvim parity)
+  dependencies = string[],        -- Sorted list of resolved dependency names (lazy.nvim parity)
+  main = string?,                 -- Detected main module name (available after config)
 }
 ```
 
