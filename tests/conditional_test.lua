@@ -334,3 +334,115 @@ describe("Conditional Loading", function()
     assert.is_truthy(utils.check_enabled(both_true), "both-true functions should merge to true")
   end)
 end)
+
+describe("defaults.lazy", function()
+  before_each(helpers.setup_test_env)
+  after_each(helpers.cleanup_test_env)
+
+  it("makes a triggerless spec lazy when defaults.lazy=true", function()
+    local state = require('zpack.state')
+
+    require('zpack').setup({
+      spec = { { 'test/plugin' } },
+      defaults = { confirm = false, lazy = true },
+    })
+    helpers.flush_pending()
+
+    local entry = state.spec_registry['https://github.com/test/plugin']
+    assert.is_not_nil(entry, "Plugin should be registered")
+    assert.is_true(entry.is_lazy_resolved, "Plugin should be lazy via defaults.lazy")
+  end)
+
+  it("spec.lazy=false overrides defaults.lazy=true", function()
+    local state = require('zpack.state')
+
+    require('zpack').setup({
+      spec = { { 'test/plugin', lazy = false } },
+      defaults = { confirm = false, lazy = true },
+    })
+    helpers.flush_pending()
+
+    local entry = state.spec_registry['https://github.com/test/plugin']
+    assert.is_not_nil(entry)
+    assert.is_false(entry.is_lazy_resolved, "Explicit lazy=false should win over defaults.lazy")
+  end)
+
+  it("defaults.lazy=false (the default) keeps a triggerless spec eager", function()
+    local state = require('zpack.state')
+
+    require('zpack').setup({
+      spec = { { 'test/plugin' } },
+      defaults = { confirm = false },
+    })
+    helpers.flush_pending()
+
+    local entry = state.spec_registry['https://github.com/test/plugin']
+    assert.is_not_nil(entry)
+    assert.is_false(entry.is_lazy_resolved, "Without defaults.lazy, a triggerless spec stays eager")
+  end)
+
+  it("a dep of a defaults.lazy=true parent is also resolved as lazy", function()
+    local state = require('zpack.state')
+
+    require('zpack').setup({
+      spec = {
+        { 'test/parent', dependencies = { 'test/child' } },
+      },
+      defaults = { confirm = false, lazy = true },
+    })
+    helpers.flush_pending()
+
+    local parent = state.spec_registry['https://github.com/test/parent']
+    local child = state.spec_registry['https://github.com/test/child']
+    assert.is_not_nil(parent)
+    assert.is_not_nil(child)
+    assert.is_true(parent.is_lazy_resolved, "Parent should be lazy via defaults.lazy")
+    assert.is_true(child.is_lazy_resolved, "Dep-only child should be lazy under defaults.lazy")
+  end)
+
+  it("a dep-only child inherits laziness from a triggered parent (no defaults.lazy)", function()
+    local state = require('zpack.state')
+
+    require('zpack').setup({
+      spec = {
+        { 'test/parent', event = 'BufRead', dependencies = { 'test/child' } },
+      },
+      defaults = { confirm = false },
+    })
+    helpers.flush_pending()
+
+    local parent = state.spec_registry['https://github.com/test/parent']
+    local child = state.spec_registry['https://github.com/test/child']
+    assert.is_not_nil(parent)
+    assert.is_not_nil(child)
+    assert.is_true(parent.is_lazy_resolved, "Parent should be lazy via its event trigger")
+    assert.is_true(child.is_lazy_resolved, "Dep-only child should inherit laziness from a triggered parent")
+  end)
+
+  it("a spec with an explicit event trigger stays lazy under defaults.lazy=true", function()
+    local state = require('zpack.state')
+
+    require('zpack').setup({
+      spec = { { 'test/plugin', event = 'BufRead' } },
+      defaults = { confirm = false, lazy = true },
+    })
+    helpers.flush_pending()
+
+    local entry = state.spec_registry['https://github.com/test/plugin']
+    assert.is_not_nil(entry)
+    assert.is_true(entry.is_lazy_resolved)
+  end)
+
+  it("enabled=false wins over defaults.lazy=true (plugin is never registered)", function()
+    local state = require('zpack.state')
+
+    require('zpack').setup({
+      spec = { { 'test/plugin', enabled = false } },
+      defaults = { confirm = false, lazy = true },
+    })
+    helpers.flush_pending()
+
+    assert.is_nil(state.spec_registry['https://github.com/test/plugin'],
+      "enabled=false should prune the plugin even under defaults.lazy=true")
+  end)
+end)

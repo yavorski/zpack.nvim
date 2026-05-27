@@ -77,6 +77,44 @@ describe("Config Validation", function()
     })
     assert.are.equal(0, #errors)
   end)
+
+  it("validate_config accepts defaults.lazy and defaults.version", function()
+    local validate = require('zpack.validate')
+    local errors = validate.validate_config({
+      defaults = { lazy = true, version = 'main' },
+    })
+    assert.are.equal(0, #errors)
+
+    errors = validate.validate_config({
+      defaults = { version = vim.version.range('^1') },
+    })
+    assert.are.equal(0, #errors)
+  end)
+
+  it("validate_config flags a non-boolean defaults.lazy", function()
+    local validate = require('zpack.validate')
+    local errors = validate.validate_config({ defaults = { lazy = 'yes' } })
+    assert.are.equal(1, #errors)
+    assert.is_truthy(errors[1]:find('defaults.lazy', 1, true) ~= nil,
+      "error should name defaults.lazy")
+    assert.is_truthy(errors[1]:find('boolean', 1, true) ~= nil,
+      "error should state expected boolean")
+  end)
+
+  it("validate_config flags a wrong-typed defaults.version", function()
+    local validate = require('zpack.validate')
+    local errors = validate.validate_config({ defaults = { version = 123 } })
+    assert.are.equal(1, #errors)
+    assert.is_truthy(errors[1]:find('defaults.version', 1, true) ~= nil,
+      "error should name defaults.version")
+  end)
+
+  it("validate_config accepts defaults.version=false (the no-default opt-out)", function()
+    local validate = require('zpack.validate')
+    local errors = validate.validate_config({ defaults = { version = false } })
+    assert.are.equal(0, #errors,
+      "defaults.version=false is the documented opt-out and must not error")
+  end)
 end)
 
 describe("Spec Validation", function()

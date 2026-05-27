@@ -170,6 +170,8 @@ command name is configurable via |zpack-setup-cmd_name| — a short name like
       defaults = {
         confirm = true,          -- set to false to skip vim.pack install prompts (default: true)
         cond = nil,              -- global condition for all plugins, e.g. not vim.g.is_vscode (default: nil)
+        lazy = false,            -- make every spec lazy-load by default unless it sets lazy=false (lazy.nvim parity, default: false)
+        version = nil,           -- default version applied when a spec has no version/sem_version/branch/tag/commit (lazy.nvim parity, default: nil)
       },
       performance = {
         vim_loader = true,       -- enables vim.loader for faster startup (default: true)
@@ -250,6 +252,13 @@ defaults        (table, optional)
                 settings always take precedence over defaults.
                   - `confirm`: Skip vim.pack install prompts. Default: `true`
                   - `cond`: Global condition for all plugins.
+                  - `lazy`: When `true`, every spec is treated as lazy
+                    unless it sets `lazy = false`. lazy.nvim parity.
+                    Default: `false`.
+                  - `version`: Default version applied when a spec has no
+                    `version`/`sem_version`/`branch`/`tag`/`commit`. A
+                    per-spec `version = false` opts out. lazy.nvim parity.
+                    Default: `nil`.
 
 performance     (table, optional)
                 Performance-related settings.
@@ -1082,7 +1091,17 @@ default lazy plugins      lazy.nvim's community specs silently default
                           lazy triggers or a lazy parent. zpack respects
                           your specs as-written, so set `lazy = true`
                           explicitly on such specs if you want the same
-                          default.
+                          default, or set `defaults.lazy = true` in
+                          `setup()` to apply it to every spec.
+
+                                              *zpack-migration-enabled-cond*
+enabled vs cond           lazy.nvim collapses both to a single "disabled"
+                          state. zpack splits them: `enabled = false` skips
+                          install entirely (the plugin is never cloned),
+                          while `cond = false` installs the plugin but
+                          skips its load (so it still shows up under
+                          `vim.pack`'s data dir). Use `enabled` when you
+                          want lazy.nvim's "don't install at all" behavior.
 
 ------------------------------------------------------------------------------
 11.2 GOTCHAS                                                   *zpack-gotchas*

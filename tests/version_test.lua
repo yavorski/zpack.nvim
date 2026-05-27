@@ -292,3 +292,111 @@ describe("Version Normalization", function()
     vim.pack.add = mock_vim_pack_add
   end)
 end)
+
+describe("defaults.version", function()
+  before_each(helpers.setup_test_env)
+  after_each(helpers.cleanup_test_env)
+
+  it("applies defaults.version when a spec has no version fields", function()
+    require('zpack').setup({
+      spec = { { 'test/plugin' } },
+      defaults = { confirm = false, version = 'main' },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.are.equal('main', call[1].version)
+  end)
+
+  it("per-spec version wins over defaults.version", function()
+    require('zpack').setup({
+      spec = { { 'test/plugin', version = 'develop' } },
+      defaults = { confirm = false, version = 'main' },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.are.equal('develop', call[1].version)
+  end)
+
+  it("version=false escape hatch wins over defaults.version", function()
+    require('zpack').setup({
+      spec = { { 'test/plugin', version = false } },
+      defaults = { confirm = false, version = 'main' },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.is_nil(call[1].version, "version=false must opt out of defaults.version")
+  end)
+
+  it("defaults.version accepts a vim.VersionRange table", function()
+    local range = vim.version.range('^1')
+
+    require('zpack').setup({
+      spec = { { 'test/plugin' } },
+      defaults = { confirm = false, version = range },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.are.equal('table', type(call[1].version))
+    assert.is_not_nil(call[1].version.from, "VersionRange should have 'from' field")
+  end)
+
+  it("per-spec branch wins over defaults.version", function()
+    require('zpack').setup({
+      spec = { { 'test/plugin', branch = 'develop' } },
+      defaults = { confirm = false, version = 'main' },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.are.equal('develop', call[1].version)
+  end)
+
+  it("per-spec sem_version wins over defaults.version", function()
+    require('zpack').setup({
+      spec = { { 'test/plugin', sem_version = '^2' } },
+      defaults = { confirm = false, version = 'main' },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.are.equal('table', type(call[1].version))
+    assert.is_not_nil(call[1].version.from)
+  end)
+
+  it("defaults.version=false is treated as no default (graceful fallback)", function()
+    require('zpack').setup({
+      spec = { { 'test/plugin' } },
+      defaults = { confirm = false, version = false },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.is_nil(call[1].version, "defaults.version=false must not leak boolean to vim.pack.add")
+  end)
+
+  it("defaults.version=false does not clobber an explicit per-spec version", function()
+    require('zpack').setup({
+      spec = { { 'test/plugin', version = 'main' } },
+      defaults = { confirm = false, version = false },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.are.equal('main', call[1].version)
+  end)
+
+  it("defaults.version=true is treated as no default (silent no-op, like spec.version=true)", function()
+    require('zpack').setup({
+      spec = { { 'test/plugin' } },
+      defaults = { confirm = false, version = true },
+    })
+
+    local call = _G.test_state.vim_pack_calls[1]
+    assert.is_not_nil(call)
+    assert.is_nil(call[1].version, "defaults.version=true must not leak boolean to vim.pack.add")
+  end)
+end)

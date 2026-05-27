@@ -39,6 +39,8 @@ end
 ---@class zpack.Config.Defaults
 ---@field cond? boolean|(fun(plugin: zpack.Plugin):boolean)
 ---@field confirm? boolean
+---@field lazy? boolean Treat every spec as lazy unless it sets `lazy = false` (lazy.nvim parity)
+---@field version? string|vim.VersionRange|false Default version when none set; `false` means no default (lazy.nvim parity)
 
 ---@class zpack.Config.Performance
 ---@field vim_loader? boolean

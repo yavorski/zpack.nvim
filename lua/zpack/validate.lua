@@ -60,6 +60,9 @@ function M.validate_config(opts)
   if type(opts.defaults) == 'table' then
     check(errors, 'defaults.cond', opts.defaults.cond, { 'boolean', 'function' })
     check(errors, 'defaults.confirm', opts.defaults.confirm, 'boolean')
+    check(errors, 'defaults.lazy', opts.defaults.lazy, 'boolean')
+    -- `boolean` accepts `version = false`, the no-default opt-out handled in utils.normalize_version.
+    check(errors, 'defaults.version', opts.defaults.version, { 'string', 'table', 'boolean' })
   end
   if type(opts.performance) == 'table' then
     check(errors, 'performance.vim_loader', opts.performance.vim_loader, 'boolean')
